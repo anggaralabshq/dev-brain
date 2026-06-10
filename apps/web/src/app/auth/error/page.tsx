@@ -63,10 +63,10 @@ export default async function AuthErrorPage({
               <p className="text-xs text-muted-foreground">
                 Contact the admin at{" "}
                 <a
-                  href="mailto:wisnuanggara05@gmail.com"
+                  href="mailto:admin@anggaralabs.com"
                   className="text-primary underline underline-offset-2"
                 >
-                  wisnuanggara05@gmail.com
+                  admin@anggaralabs.com
                 </a>{" "}
                 to request access to this app.
               </p>
