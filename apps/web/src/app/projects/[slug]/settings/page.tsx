@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth/current-user";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { getProjectBySlug } from "@/lib/db/projects";
@@ -10,7 +11,9 @@ export default async function ProjectSettingsPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = await getProjectBySlug(slug);
+  let user;
+  try { user = await requireUser(); } catch { redirect("/login"); }
+  const project = await getProjectBySlug(slug, user.id);
   if (!project) notFound();
 
   return (

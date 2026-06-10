@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth/current-user";
 import { ChevronRight, Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getProjectBySlug } from "@/lib/db/projects";
 import { getNotes } from "@/lib/db/notes";
 import { type NoteListItem as NoteItem } from "@/components/notes/note-list-item";
 import { NotesSearch } from "@/components/notes/notes-search";
+import { EmptyState } from "@/components/empty-state";
 
 export default async function ProjectNotesPage({
   params,
@@ -13,7 +15,9 @@ export default async function ProjectNotesPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = await getProjectBySlug(slug);
+  let user;
+  try { user = await requireUser(); } catch { redirect("/login"); }
+  const project = await getProjectBySlug(slug, user.id);
   if (!project) notFound();
 
   let notes: NoteItem[] = [];
@@ -61,15 +65,14 @@ export default async function ProjectNotesPage({
       </div>
 
       {notes.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-12 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <p className="text-sm font-medium">No notes in this project yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Create your first note to document knowledge, ideas, or links.
-          </p>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="No notes in this project yet"
+          description="Document knowledge, decisions, and ideas. Notes support Markdown and can link to each other with [[wikilinks]]."
+          actionLabel="New Note"
+          actionHref={`/notes/new?projectId=${project.id}`}
+          size="page"
+        />
       ) : (
         <NotesSearch notes={notes} />
       )}

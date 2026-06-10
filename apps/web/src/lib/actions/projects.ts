@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@devbrain/db";
 import { projects, projectMembers } from "@devbrain/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/current-user";
 
 // ---- helpers ----
@@ -86,25 +86,29 @@ export async function createProjectAction(formData: FormData) {
 }
 
 export async function deleteProjectAction(slug: string) {
-  await db.delete(projects).where(eq(projects.slug, slug));
+  const user = await requireUser().catch(() => null);
+  if (!user) return;
+  await db.delete(projects).where(and(eq(projects.slug, slug), eq(projects.ownerId, user.id)));
   revalidatePath("/projects");
   revalidatePath("/");
   redirect("/projects");
 }
 
 export async function toggleStarAction(slug: string) {
-  // Toggle starred by reading current value
+  const user = await requireUser().catch(() => null);
+  if (!user) return { ok: false as const, error: "Not authenticated" };
+
   const [current] = await db
     .select({ starred: projects.starred })
     .from(projects)
-    .where(eq(projects.slug, slug))
+    .where(and(eq(projects.slug, slug), eq(projects.ownerId, user.id)))
     .limit(1);
   if (!current) return { ok: false as const, error: "Project not found" };
 
   await db
     .update(projects)
     .set({ starred: !current.starred, updatedAt: new Date() })
-    .where(eq(projects.slug, slug));
+    .where(and(eq(projects.slug, slug), eq(projects.ownerId, user.id)));
 
   revalidatePath("/projects");
   revalidatePath("/");
@@ -112,11 +116,13 @@ export async function toggleStarAction(slug: string) {
 }
 
 export async function updateProjectProgressAction(slug: string, progress: number) {
+  const user = await requireUser().catch(() => null);
+  if (!user) return;
   const clamped = Math.max(0, Math.min(100, Math.round(progress)));
   await db
     .update(projects)
     .set({ progress: clamped, updatedAt: new Date() })
-    .where(eq(projects.slug, slug));
+    .where(and(eq(projects.slug, slug), eq(projects.ownerId, user.id)));
   revalidatePath(`/projects/${slug}`);
   revalidatePath("/projects");
 }
@@ -147,7 +153,7 @@ export async function updateProjectAction(
   if (data.targetDate !== undefined) set.targetDate = data.targetDate;
   if (data.tags !== undefined) set.tags = data.tags;
 
-  await db.update(projects).set(set).where(eq(projects.slug, slug));
+  await db.update(projects).set(set).where(and(eq(projects.slug, slug), eq(projects.ownerId, user.id)));
   revalidatePath(`/projects/${slug}`);
   revalidatePath("/projects");
   revalidatePath("/");
@@ -157,14 +163,19 @@ export async function updateProjectAction(
 export async function getProjectsForPickerAction(): Promise<
   { id: string; slug: string; name: string; color: string }[]
 > {
+  const user = await requireUser().catch(() => null);
+  if (!user) return [];
   const rows = await db
     .select({ id: projects.id, slug: projects.slug, name: projects.name, color: projects.color })
     .from(projects)
+    .where(eq(projects.ownerId, user.id))
     .orderBy(projects.name);
   return rows;
 }
 
 export async function archiveProjectAction(slug: string) {
+  const user = await requireUser().catch(() => null);
+  if (!user) return { ok: false as const, error: "Not authenticated" };
   await db
     .update(projects)
     .set({
@@ -172,7 +183,7 @@ export async function archiveProjectAction(slug: string) {
       archivedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(projects.slug, slug));
+    .where(and(eq(projects.slug, slug), eq(projects.ownerId, user.id)));
   revalidatePath("/projects");
   revalidatePath(`/projects/${slug}`);
   return { ok: true as const };

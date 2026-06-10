@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect, useTransition } from "react";
-import { Search, LayoutGrid, List, Filter, Activity, FileText, GitBranch, Network, CheckSquare, Users } from "lucide-react";
+import { Search, LayoutGrid, List, Filter, Activity, FileText, GitBranch, Network, CheckSquare, Users, FolderKanban } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -289,16 +290,20 @@ export function ProjectsView({
       </div>
 
       {/* Content */}
-      {filtered.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-12 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-            <Search className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <p className="text-sm font-medium">No projects found</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Try a different search or create a new project.
-          </p>
-        </div>
+      {projects.length === 0 ? (
+        <EmptyState
+          icon={FolderKanban}
+          title="No projects yet"
+          description="Projects are your home base — bring together tasks, notes, ADRs, diagrams, and meetings in one place."
+          size="page"
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title="No projects match"
+          description={`No projects found for "${search || activeTab}". Try a different search or filter.`}
+          size="card"
+        />
       ) : view === "grid" ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => (

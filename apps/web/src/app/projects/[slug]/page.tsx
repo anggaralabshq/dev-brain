@@ -1,10 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth/current-user";
 import Link from "next/link";
 import {
   ChevronRight,
-  Share2,
-  Star,
-  MoreHorizontal,
   LayoutDashboard,
   Network,
   FileText,
@@ -18,10 +16,8 @@ import { db } from "@devbrain/db";
 import { users } from "@devbrain/db/schema";
 import { eq } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const statusVariant: Record<string, "success" | "info" | "warning" | "muted"> = {
   active: "success",
@@ -46,7 +42,9 @@ export default async function ProjectOverviewPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = await getProjectBySlug(slug);
+  let user;
+  try { user = await requireUser(); } catch { redirect("/login"); }
+  const project = await getProjectBySlug(slug, user.id);
 
   if (!project) {
     notFound();
@@ -84,7 +82,7 @@ export default async function ProjectOverviewPage({
       </div>
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/15">
             <Network className="h-5 w-5 text-primary" />
@@ -96,32 +94,6 @@ export default async function ProjectOverviewPage({
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">{project.description}</p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex -space-x-1.5">
-            {project.members.slice(0, 3).map((m) => (
-              <Avatar key={m.id} className="h-7 w-7 border-2 border-card">
-                <AvatarFallback className={`${m.color} text-[10px] text-white`}>
-                  {m.initials}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-            {project.members.length > 3 && (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-muted text-[10px] font-medium">
-                +{project.members.length - 3}
-              </div>
-            )}
-          </div>
-          <Button variant="outline" size="sm">
-            <Share2 className="h-3.5 w-3.5" />
-            Share
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Star className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </Button>
         </div>
       </div>
 

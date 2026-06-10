@@ -1,16 +1,22 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getNotes } from "@/lib/db/notes";
+import { requireUser } from "@/lib/auth/current-user";
 import { type NoteListItem as NoteItem } from "@/components/notes/note-list-item";
 import { NotesSearch } from "@/components/notes/notes-search";
+import { EmptyState } from "@/components/empty-state";
 
 export default async function NotesPage() {
+  let user;
+  try { user = await requireUser(); } catch { redirect("/login"); }
+
   let notes: NoteItem[] = [];
   let dbError: string | null = null;
 
   try {
-    const rows = await getNotes();
+    const rows = await getNotes({ authorId: user.id });
     notes = rows.map((n) => ({
       ...n,
       updatedAt: n.updatedAt.toISOString(),
@@ -50,30 +56,17 @@ export default async function NotesPage() {
       </div>
 
       {notes.length === 0 ? (
-        <EmptyNotesState />
+        <EmptyState
+          icon={FileText}
+          title="No notes yet"
+          description="Capture knowledge, ideas, decisions, and links between projects. Notes support Markdown and [[wikilinks]]."
+          actionLabel="New Note"
+          actionHref="/notes/new"
+          size="page"
+        />
       ) : (
         <NotesSearch notes={notes} />
       )}
-    </div>
-  );
-}
-
-function EmptyNotesState() {
-  return (
-    <div className="rounded-md border border-dashed border-border p-12 text-center">
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-        <FileText className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <p className="text-sm font-medium">No notes yet</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Create your first note to capture knowledge, ideas, or links between projects.
-      </p>
-      <Button asChild size="sm" className="mt-4">
-        <Link href="/notes/new">
-          <Plus className="h-4 w-4" />
-          New Note
-        </Link>
-      </Button>
     </div>
   );
 }

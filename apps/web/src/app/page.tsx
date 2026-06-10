@@ -5,12 +5,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   FolderKanban, Sparkles, FileText, Users, ArrowRight,
   CheckSquare, Calendar, GitBranch, Plus, Network, AlertCircle,
+  Activity,
 } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { FocusStatsWidget } from "@/components/pomodoro/focus-stats-widget";
 import { getAllProjects } from "@/lib/db/projects";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { db } from "@devbrain/db";
 import { notes, tasks, adrs, meetings, whiteboards, projects as projectsTable } from "@devbrain/db/schema";
-import { desc, gte, eq, inArray } from "drizzle-orm";
+import { desc, gte, eq, inArray, and } from "drizzle-orm";
 import { projects as mockProjects, activityFeed as mockActivity, upcoming as mockUpcoming } from "@/lib/mock-data";
 
 // ── colour palette ──────────────────────────────────────────────
@@ -50,18 +53,18 @@ function fmtTime(d: Date): string {
 
 // ── Ring ─────────────────────────────────────────────────────────
 function Ring({ value, strokeClass, label }: { value: number; strokeClass: string; label: string }) {
-  const r = 44, circ = 2 * Math.PI * r;
+  const r = 56, circ = 2 * Math.PI * r;
   const offset = circ - (value / 100) * circ;
   return (
     <div className="flex flex-col items-center gap-2">
-      <svg width="108" height="108" viewBox="0 0 108 108">
-        <circle cx="54" cy="54" r={r} fill="none" stroke="currentColor" strokeWidth="6" className="text-muted/25" />
-        <circle cx="54" cy="54" r={r} fill="none" stroke="currentColor" strokeWidth="6"
+      <svg width="136" height="136" viewBox="0 0 136 136">
+        <circle cx="68" cy="68" r={r} fill="none" stroke="currentColor" strokeWidth="8" className="text-muted/25" />
+        <circle cx="68" cy="68" r={r} fill="none" stroke="currentColor" strokeWidth="8"
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-          transform="rotate(-90 54 54)" className={strokeClass} />
-        <text x="54" y="60" textAnchor="middle" fontSize="17" fontWeight="700" fill="currentColor">{value}%</text>
+          transform="rotate(-90 68 68)" className={strokeClass} />
+        <text x="68" y="75" textAnchor="middle" fontSize="22" fontWeight="700" fill="currentColor">{value}%</text>
       </svg>
-      <span className="w-24 truncate text-center text-xs leading-tight text-muted-foreground">{label}</span>
+      <span className="w-28 truncate text-center text-sm leading-tight text-muted-foreground">{label}</span>
     </div>
   );
 }
@@ -100,11 +103,17 @@ type OpenTaskItem = {
 
 // ── page ─────────────────────────────────────────────────────────
 export default async function HomePage() {
+  const currentUser = await getCurrentUser();
+  const userId = currentUser?.id ?? null;
+
   // Projects
   let projects = mockProjects;
   try {
-    const db_projects = await getAllProjects();
-    if (db_projects.length > 0) projects = db_projects as unknown as typeof mockProjects;
+    if (userId) {
+      const db_projects = await getAllProjects(userId);
+      if (db_projects.length > 0) projects = db_projects as unknown as typeof mockProjects;
+      else projects = [];
+    }
   } catch { /* mock fallback */ }
 
   const active = projects.filter(p => p.status === "active" || p.status === "planning");
@@ -112,35 +121,37 @@ export default async function HomePage() {
   // Activity feed from DB
   let activityItems: ActivityItem[] = [];
   try {
+    if (!userId) throw new Error("no user");
     const [recentNotes, recentTasks, recentAdrs, recentMeetings, recentWhiteboards] = await Promise.all([
       db.select({
         id: notes.id, title: notes.title, slug: notes.slug, updatedAt: notes.updatedAt,
         projectSlug: projectsTable.slug, projectName: projectsTable.name,
       }).from(notes).leftJoin(projectsTable, eq(notes.projectId, projectsTable.id))
+        .where(eq(notes.authorId, userId))
         .orderBy(desc(notes.updatedAt)).limit(5),
 
       db.select({
         id: tasks.id, title: tasks.title, updatedAt: tasks.updatedAt,
         projectSlug: projectsTable.slug, projectName: projectsTable.name,
-      }).from(tasks).innerJoin(projectsTable, eq(tasks.projectId, projectsTable.id))
+      }).from(tasks).innerJoin(projectsTable, and(eq(tasks.projectId, projectsTable.id), eq(projectsTable.ownerId, userId)))
         .orderBy(desc(tasks.updatedAt)).limit(5),
 
       db.select({
         id: adrs.id, title: adrs.title, number: adrs.number, updatedAt: adrs.updatedAt,
         projectSlug: projectsTable.slug, projectName: projectsTable.name,
-      }).from(adrs).innerJoin(projectsTable, eq(adrs.projectId, projectsTable.id))
+      }).from(adrs).innerJoin(projectsTable, and(eq(adrs.projectId, projectsTable.id), eq(projectsTable.ownerId, userId)))
         .orderBy(desc(adrs.updatedAt)).limit(5),
 
       db.select({
         id: meetings.id, title: meetings.title, updatedAt: meetings.createdAt,
         projectSlug: projectsTable.slug, projectName: projectsTable.name,
-      }).from(meetings).innerJoin(projectsTable, eq(meetings.projectId, projectsTable.id))
+      }).from(meetings).innerJoin(projectsTable, and(eq(meetings.projectId, projectsTable.id), eq(projectsTable.ownerId, userId)))
         .orderBy(desc(meetings.createdAt)).limit(5),
 
       db.select({
         id: whiteboards.id, title: whiteboards.title, updatedAt: whiteboards.updatedAt,
         projectSlug: projectsTable.slug, projectName: projectsTable.name,
-      }).from(whiteboards).innerJoin(projectsTable, eq(whiteboards.projectId, projectsTable.id))
+      }).from(whiteboards).innerJoin(projectsTable, and(eq(whiteboards.projectId, projectsTable.id), eq(projectsTable.ownerId, userId)))
         .orderBy(desc(whiteboards.updatedAt)).limit(5),
     ]);
 
@@ -201,12 +212,13 @@ export default async function HomePage() {
   // Upcoming meetings from DB
   let upcomingItems: UpcomingItem[] = [];
   try {
+    if (!userId) throw new Error("no user");
     const rows = await db.select({
       id: meetings.id, title: meetings.title,
       startAt: meetings.startAt,
       projectSlug: projectsTable.slug, projectName: projectsTable.name, projectColor: projectsTable.color,
     }).from(meetings)
-      .innerJoin(projectsTable, eq(meetings.projectId, projectsTable.id))
+      .innerJoin(projectsTable, and(eq(meetings.projectId, projectsTable.id), eq(projectsTable.ownerId, userId)))
       .where(gte(meetings.startAt, new Date()))
       .orderBy(meetings.startAt)
       .limit(5);
@@ -233,12 +245,13 @@ export default async function HomePage() {
   const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
   let openTaskItems: OpenTaskItem[] = [];
   try {
+    if (!userId) throw new Error("no user");
     const rows = await db.select({
       id: tasks.id, title: tasks.title,
       priority: tasks.priority, status: tasks.status,
       projectSlug: projectsTable.slug, projectName: projectsTable.name,
     }).from(tasks)
-      .innerJoin(projectsTable, eq(tasks.projectId, projectsTable.id))
+      .innerJoin(projectsTable, and(eq(tasks.projectId, projectsTable.id), eq(projectsTable.ownerId, userId)))
       .where(inArray(tasks.status, ["todo", "in_progress"]))
       .orderBy(desc(tasks.updatedAt))
       .limit(12);
@@ -270,6 +283,17 @@ export default async function HomePage() {
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
+          {active.length === 0 && (
+            <EmptyState
+              icon={FolderKanban}
+              title="No active projects yet"
+              description="Create your first project to start organizing tasks, notes, ADRs, and meetings in one place."
+              actionLabel="Create Project"
+              actionHref="/projects"
+              size="card"
+              className="mb-3"
+            />
+          )}
           <div className="grid grid-cols-5 gap-3">
             {active.slice(0, 4).map(p => {
               const c = C[p.color] ?? C.violet;
@@ -333,7 +357,14 @@ export default async function HomePage() {
             </CardHeader>
             <CardContent className="flex-1 space-y-0.5 pt-0">
               {activityItems.length === 0 ? (
-                <p className="py-6 text-center text-xs text-muted-foreground">No activity yet.</p>
+                <EmptyState
+                  icon={Activity}
+                  title="No activity yet"
+                  description="Your recent notes, tasks, ADRs, meetings, and diagrams will appear here as you work."
+                  actionLabel="Go to Projects"
+                  actionHref="/projects"
+                  size="card"
+                />
               ) : activityItems.map(a => {
                 const Icon = ICON_MAP[a.type as keyof typeof ICON_MAP] ?? FileText;
                 const color = COLOR_MAP[a.type] ?? "text-muted-foreground";
@@ -363,17 +394,28 @@ export default async function HomePage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Progress Overview</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-1 items-center pt-0">
-              <div className="grid w-full grid-cols-2 gap-x-2 gap-y-8">
-                {active.slice(0, 4).map(p => {
-                  const c = C[p.color] ?? C.violet;
-                  return (
-                    <Link key={p.id} href={`/projects/${p.slug}`} className="flex justify-center">
-                      <Ring value={p.progress} strokeClass={c.stroke} label={p.name.split(" ").slice(0, 2).join(" ")} />
-                    </Link>
-                  );
-                })}
-              </div>
+            <CardContent className="flex flex-1 items-center justify-center pt-0 pb-4">
+              {active.length === 0 ? (
+                <EmptyState
+                  icon={Network}
+                  title="No projects yet"
+                  description="Progress rings will appear once you have active projects."
+                  actionLabel="Create Project"
+                  actionHref="/projects"
+                  size="inline"
+                />
+              ) : (
+                <div className="grid w-full grid-cols-2 gap-x-4 gap-y-6 place-items-center">
+                  {active.slice(0, 4).map(p => {
+                    const c = C[p.color] ?? C.violet;
+                    return (
+                      <Link key={p.id} href={`/projects/${p.slug}`}>
+                        <Ring value={p.progress} strokeClass={c.stroke} label={p.name.split(" ").slice(0, 2).join(" ")} />
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -396,7 +438,12 @@ export default async function HomePage() {
           </CardHeader>
           <CardContent className="space-y-1 px-4 pb-4 pt-0">
             {upcomingItems.length === 0 ? (
-              <p className="py-4 text-center text-[11px] text-muted-foreground">No upcoming meetings.</p>
+              <EmptyState
+                icon={Calendar}
+                title="All clear"
+                description="No upcoming meetings. Schedule one inside any project."
+                size="inline"
+              />
             ) : upcomingItems.map((u, i) => {
               const [mon, day] = u.date.split(" ");
               return (
@@ -438,7 +485,12 @@ export default async function HomePage() {
           </CardHeader>
           <CardContent className="space-y-0.5 px-4 pb-4 pt-0">
             {openTaskItems.length === 0 ? (
-              <p className="py-4 text-center text-[11px] text-muted-foreground">No open tasks.</p>
+              <EmptyState
+                icon={CheckSquare}
+                title="All done!"
+                description="No open tasks right now. Create tasks inside any project."
+                size="inline"
+              />
             ) : openTaskItems.map(t => (
               <Link key={t.id} href={t.href}>
                 <div className="flex items-start gap-2 rounded-md p-1.5 hover:bg-accent cursor-pointer transition-colors">

@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth/current-user";
 import Link from "next/link";
 import { ChevronRight, Network, Plus, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { getProjectBySlug } from "@/lib/db/projects";
 import { getWhiteboardsForProject } from "@/lib/db/whiteboards";
 import { CreateWhiteboardButton } from "@/components/architecture/create-whiteboard-button";
+import { EmptyState } from "@/components/empty-state";
 
 export default async function ProjectDiagramsPage({
   params,
@@ -14,7 +16,9 @@ export default async function ProjectDiagramsPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = await getProjectBySlug(slug);
+  let user;
+  try { user = await requireUser(); } catch { redirect("/login"); }
+  const project = await getProjectBySlug(slug, user.id);
   if (!project) notFound();
 
   const diagrams = await getWhiteboardsForProject(project.id);
@@ -41,18 +45,12 @@ export default async function ProjectDiagramsPage({
       </div>
 
       {diagrams.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-12 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-            <Network className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <p className="text-sm font-medium">No architecture diagrams yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Create your first diagram to visualize your system architecture.
-          </p>
-          <div className="mt-4">
-            <CreateWhiteboardButton projectId={project.id} />
-          </div>
-        </div>
+        <EmptyState
+          icon={Network}
+          title="No diagrams yet"
+          description="Visualize your system architecture with interactive diagrams. Drag components, draw connections, and document your design."
+          size="page"
+        />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {diagrams.map((d) => (

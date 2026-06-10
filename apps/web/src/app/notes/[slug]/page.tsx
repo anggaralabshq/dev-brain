@@ -1,20 +1,24 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, FileText, Folder, Pin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NoteEditor } from "@/components/notes/note-editor";
 import { getNoteBySlug, getBacklinks } from "@/lib/db/notes";
+import { requireUser } from "@/lib/auth/current-user";
 
 export default async function NotePage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  let user;
+  try { user = await requireUser(); } catch { redirect("/login"); }
+
   const { slug } = await params;
   const note = await getNoteBySlug(slug);
 
-  if (!note) notFound();
+  if (!note || note.authorId !== user.id) notFound();
 
   const backlinks = await getBacklinks(slug);
 

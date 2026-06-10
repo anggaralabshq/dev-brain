@@ -12,6 +12,12 @@ import {
   getPomodoroSettingsByUserId,
   upsertPomodoroSettingsByUserId,
   getPomodoroStats,
+  getAnalyticsOverview,
+  getProjectBreakdown,
+  getTaskBreakdown,
+  getDailyHeatmap,
+  getDailyTrend,
+  getRecentSessions,
   type PomodoroSessionWithTask,
 } from "@/lib/db/pomodoro";
 
@@ -433,4 +439,42 @@ export async function getPomodoroStatsAction() {
 
   const stats = await getPomodoroStats(user.id);
   return { ok: true, stats };
+}
+
+export type FocusRange = "7d" | "30d" | "90d" | "all";
+
+function sinceFromRange(range: FocusRange): Date {
+  const now = new Date();
+  if (range === "7d")  return new Date(now.getTime() - 7  * 86400000);
+  if (range === "30d") return new Date(now.getTime() - 30 * 86400000);
+  if (range === "90d") return new Date(now.getTime() - 90 * 86400000);
+  return new Date(0); // all time
+}
+
+export async function getFocusAnalyticsAction(range: FocusRange = "30d") {
+  const user = await requireUser().catch(() => null);
+  if (!user) return { ok: false as const, error: "Not authenticated" };
+
+  const since = sinceFromRange(range);
+
+  const [overview, projectBreakdown, taskBreakdown, heatmap, trend, recentSessions] =
+    await Promise.all([
+      getAnalyticsOverview(user.id, since),
+      getProjectBreakdown(user.id, since),
+      getTaskBreakdown(user.id, since),
+      getDailyHeatmap(user.id, 84),
+      getDailyTrend(user.id, 14),
+      getRecentSessions(user.id, 15, since),
+    ]);
+
+  return {
+    ok: true as const,
+    range,
+    overview,
+    projectBreakdown,
+    taskBreakdown,
+    heatmap,
+    trend,
+    recentSessions,
+  };
 }

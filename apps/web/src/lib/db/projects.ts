@@ -5,7 +5,7 @@
 import "server-only";
 import { db } from "@devbrain/db";
 import { projects, projectMembers, users, notes, tasks, adrs, whiteboards } from "@devbrain/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 
 export type ProjectWithMeta = {
   id: string;
@@ -61,9 +61,9 @@ function hashToColor(name: string): string {
 }
 
 /**
- * Get all projects (with member info) — used by /projects page
+ * Get all projects owned by a user (with member info) — used by /projects page
  */
-export async function getAllProjects(): Promise<ProjectWithMeta[]> {
+export async function getAllProjects(userId: string): Promise<ProjectWithMeta[]> {
   const rows = await db
     .select({
       project: projects,
@@ -75,6 +75,7 @@ export async function getAllProjects(): Promise<ProjectWithMeta[]> {
     .from(projects)
     .leftJoin(projectMembers, eq(projectMembers.projectId, projects.id))
     .leftJoin(users, eq(users.id, projectMembers.userId))
+    .where(eq(projects.ownerId, userId))
     .orderBy(desc(projects.updatedAt));
 
   // Group members by project
@@ -118,18 +119,18 @@ export async function getAllProjects(): Promise<ProjectWithMeta[]> {
 }
 
 /**
- * Get single project by slug
+ * Get single project by slug — only returns projects owned by userId (prevents cross-user access)
  */
-export async function getProjectBySlug(slug: string): Promise<ProjectWithMeta | null> {
-  const list = await getAllProjects();
+export async function getProjectBySlug(slug: string, userId: string): Promise<ProjectWithMeta | null> {
+  const list = await getAllProjects(userId);
   return list.find((p) => p.slug === slug) ?? null;
 }
 
 /**
  * Get starred projects (for sidebar) — limited to first 5
  */
-export async function getStarredProjects(limit = 5) {
-  const all = await getAllProjects();
+export async function getStarredProjects(userId: string, limit = 5) {
+  const all = await getAllProjects(userId);
   return all.filter((p) => p.starred).slice(0, limit);
 }
 
@@ -232,16 +233,27 @@ export async function getProjectStats(projectId: string) {
 }
 
 /**
- * Aggregate stats across all projects (used by /projects page)
+ * Aggregate stats scoped to a user's own projects (used by /projects page)
  */
-export async function getGlobalProjectStats() {
+export async function getGlobalProjectStats(userId: string) {
+  // Get IDs of projects owned by this user
+  const ownedProjects = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.ownerId, userId));
+  const projectIds = ownedProjects.map((p) => p.id);
+
+  if (projectIds.length === 0) {
+    return { totalProjects: 0, totalNotes: 0, totalTasks: 0, totalAdrs: 0, totalDiagrams: 0, totalMembers: 0 };
+  }
+
   const [pCount, nCount, tCount, aCount, wCount, mCount] = await Promise.all([
-    db.select({ n: sql<number>`count(*)::int` }).from(projects).then(r => r[0]?.n ?? 0),
-    db.select({ n: sql<number>`count(*)::int` }).from(notes).then(r => r[0]?.n ?? 0),
-    db.select({ n: sql<number>`count(*)::int` }).from(tasks).then(r => r[0]?.n ?? 0),
-    db.select({ n: sql<number>`count(*)::int` }).from(adrs).then(r => r[0]?.n ?? 0),
-    db.select({ n: sql<number>`count(*)::int` }).from(whiteboards).then(r => r[0]?.n ?? 0),
-    db.select({ n: sql<number>`count(distinct ${projectMembers.userId})::int` }).from(projectMembers).then(r => r[0]?.n ?? 0),
+    Promise.resolve(projectIds.length),
+    db.select({ n: sql<number>`count(*)::int` }).from(notes).where(inArray(notes.projectId, projectIds)).then(r => r[0]?.n ?? 0),
+    db.select({ n: sql<number>`count(*)::int` }).from(tasks).where(inArray(tasks.projectId, projectIds)).then(r => r[0]?.n ?? 0),
+    db.select({ n: sql<number>`count(*)::int` }).from(adrs).where(inArray(adrs.projectId, projectIds)).then(r => r[0]?.n ?? 0),
+    db.select({ n: sql<number>`count(*)::int` }).from(whiteboards).where(inArray(whiteboards.projectId, projectIds)).then(r => r[0]?.n ?? 0),
+    db.select({ n: sql<number>`count(distinct ${projectMembers.userId})::int` }).from(projectMembers).where(inArray(projectMembers.projectId, projectIds)).then(r => r[0]?.n ?? 0),
   ]);
   return {
     totalProjects: pCount,

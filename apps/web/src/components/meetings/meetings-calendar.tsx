@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, Video } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, Video, Calendar } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -211,7 +212,12 @@ export function MeetingsCalendar({
               Upcoming · {new Date(curYear, curMonth).toLocaleString("default", { month: "short" })}
             </p>
             {upcomingMeetings.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No upcoming meetings</p>
+              <EmptyState
+                icon={Calendar}
+                title="All clear"
+                description="No upcoming meetings this month. Click any day to schedule one."
+                size="inline"
+              />
             ) : (
               <div className="space-y-2">
                 {upcomingMeetings.map((m) => (

@@ -14,6 +14,7 @@ import {
   ScrollText,
   CheckSquare,
   Calendar,
+  Timer,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
@@ -38,6 +39,7 @@ interface NavItem {
 const mainNav: NavItem[] = [
   { label: "Home",      href: "/",          icon: Home },
   { label: "Projects",  href: "/projects",  icon: FolderKanban, badge: 7 },
+  { label: "Focus",     href: "/focus",     icon: Timer },
   { label: "Settings",  href: "/settings",  icon: Settings },
 ];
 

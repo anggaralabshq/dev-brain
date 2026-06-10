@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth/current-user";
 import Link from "next/link";
 import { ChevronRight, Network } from "lucide-react";
 import { getWhiteboardById } from "@/lib/db/whiteboards";
@@ -11,9 +12,11 @@ export default async function WhiteboardEditorPage({
   params: Promise<{ slug: string; id: string }>;
 }) {
   const { slug, id } = await params;
+  let user;
+  try { user = await requireUser(); } catch { redirect("/login"); }
   const [wb, project] = await Promise.all([
     getWhiteboardById(id),
-    getProjectBySlug(slug),
+    getProjectBySlug(slug, user.id),
   ]);
 
   if (!wb || !project) notFound();

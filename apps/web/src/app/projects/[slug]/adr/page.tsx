@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ChevronRight, Plus, FileText, CheckCircle2, Clock, XCircle, ArrowRight } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth/current-user";
+import { ChevronRight, Plus, FileText, CheckCircle2, Clock, XCircle, ArrowRight, GitBranch } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getProjectBySlug } from "@/lib/db/projects";
 import { getAdrsForProject } from "@/lib/db/adrs";
 import { CreateAdrDialog } from "@/components/adrs/create-adr-dialog";
+import { EmptyState } from "@/components/empty-state";
 
 const statusBadge: Record<string, { variant: "success" | "info" | "warning" | "muted"; icon: React.ComponentType<{ className?: string }>; label: string }> = {
   proposed: { variant: "info", icon: Clock, label: "Proposed" },
@@ -21,7 +23,9 @@ export default async function ProjectAdrPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = await getProjectBySlug(slug);
+  let user;
+  try { user = await requireUser(); } catch { redirect("/login"); }
+  const project = await getProjectBySlug(slug, user.id);
   if (!project) notFound();
 
   const adrs = await getAdrsForProject(project.id);
@@ -47,15 +51,12 @@ export default async function ProjectAdrPage({
       </div>
 
       {adrs.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-12 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <p className="text-sm font-medium">No ADRs yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Create your first ADR to document architectural decisions.
-          </p>
-        </div>
+        <EmptyState
+          icon={GitBranch}
+          title="No ADRs yet"
+          description="Architecture Decision Records document the why behind your technical choices. Start capturing decisions before they're forgotten."
+          size="page"
+        />
       ) : (
         <div className="space-y-2">
           {adrs.map((a) => {

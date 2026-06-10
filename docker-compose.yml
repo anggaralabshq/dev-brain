@@ -47,6 +47,7 @@ services:
     environment:
       DATABASE_URL: "postgresql://devbrain:devbrain_dev_only@postgres:5432/devbrain"
       NEXT_PUBLIC_APP_URL: "${NEXT_PUBLIC_APP_URL:-http://localhost:3000}"
+      AUTH_URL: "http://localhost:3000"
       AUTH_SECRET: "${AUTH_SECRET}"
       AUTH_TRUST_HOST: "true"
       GITHUB_ID: "${GITHUB_ID}"

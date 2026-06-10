@@ -5,7 +5,7 @@
 import "server-only";
 import { db } from "@devbrain/db";
 import { pomodoroSessions, pomodoroSettings, tasks } from "@devbrain/db/schema";
-import { eq, and, gte, lte, desc, count, sql, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, desc, count, sum, sql, isNull } from "drizzle-orm";
 
 export type PomodoroSessionWithTask = {
   id: string;
@@ -327,6 +327,278 @@ function calculateStreak(completedDates: Date[]): {
   }
 
   return { current, longest };
+}
+
+// ── Analytics queries ────────────────────────────────────────────────────────
+
+export type ProjectBreakdown = {
+  projectId: string;
+  projectName: string;
+  projectColor: string;
+  totalSessions: number;
+  completedSessions: number;
+  totalMinutes: number;
+  completionRate: number;
+};
+
+export type TaskBreakdown = {
+  taskId: string;
+  taskTitle: string;
+  projectName: string;
+  totalSessions: number;
+  completedSessions: number;
+  totalMinutes: number;
+};
+
+export type DailyCount = {
+  date: string; // YYYY-MM-DD
+  count: number;
+};
+
+export type AnalyticsOverview = {
+  totalSessions: number;
+  completedSessions: number;
+  totalMinutes: number;
+  completionRate: number;
+  avgSessionsPerDay: number;
+  activeDays: number;
+};
+
+export async function getAnalyticsOverview(
+  userId: string,
+  since: Date
+): Promise<AnalyticsOverview> {
+  const rows = await db
+    .select({
+      status: pomodoroSessions.status,
+      sessionCount: count(),
+      totalMins: sum(pomodoroSessions.workDurationMin),
+      dateStr: sql<string>`to_char(${pomodoroSessions.startedAt}, 'YYYY-MM-DD')`,
+    })
+    .from(pomodoroSessions)
+    .where(and(eq(pomodoroSessions.userId, userId), gte(pomodoroSessions.startedAt, since)))
+    .groupBy(pomodoroSessions.status, sql`to_char(${pomodoroSessions.startedAt}, 'YYYY-MM-DD')`);
+
+  let total = 0, completed = 0, totalMins = 0;
+  const activeDaysSet = new Set<string>();
+
+  for (const r of rows) {
+    const n = Number(r.sessionCount);
+    total += n;
+    totalMins += Number(r.totalMins ?? 0);
+    if (r.status === "completed") completed += n;
+    activeDaysSet.add(r.dateStr);
+  }
+
+  const activeDays = activeDaysSet.size;
+  const daysSince = Math.max(1, Math.round((Date.now() - since.getTime()) / 86400000));
+
+  return {
+    totalSessions: total,
+    completedSessions: completed,
+    totalMinutes: totalMins,
+    completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+    avgSessionsPerDay: activeDays > 0 ? Math.round((completed / daysSince) * 10) / 10 : 0,
+    activeDays,
+  };
+}
+
+export async function getProjectBreakdown(
+  userId: string,
+  since: Date
+): Promise<ProjectBreakdown[]> {
+  const { projects } = await import("@devbrain/db/schema");
+
+  const rows = await db
+    .select({
+      projectId: pomodoroSessions.projectId,
+      projectName: projects.name,
+      projectColor: projects.color,
+      status: pomodoroSessions.status,
+      sessionCount: count(),
+      totalMins: sum(pomodoroSessions.workDurationMin),
+    })
+    .from(pomodoroSessions)
+    .innerJoin(projects, eq(projects.id, pomodoroSessions.projectId))
+    .where(and(eq(pomodoroSessions.userId, userId), gte(pomodoroSessions.startedAt, since)))
+    .groupBy(pomodoroSessions.projectId, projects.name, projects.color, pomodoroSessions.status)
+    .orderBy(desc(count()));
+
+  const map = new Map<string, ProjectBreakdown>();
+  for (const r of rows) {
+    const n = Number(r.sessionCount);
+    const mins = Number(r.totalMins ?? 0);
+    if (!map.has(r.projectId)) {
+      map.set(r.projectId, {
+        projectId: r.projectId,
+        projectName: r.projectName,
+        projectColor: r.projectColor,
+        totalSessions: 0,
+        completedSessions: 0,
+        totalMinutes: 0,
+        completionRate: 0,
+      });
+    }
+    const entry = map.get(r.projectId)!;
+    entry.totalSessions += n;
+    entry.totalMinutes += mins;
+    if (r.status === "completed") entry.completedSessions += n;
+  }
+
+  for (const entry of map.values()) {
+    entry.completionRate = entry.totalSessions > 0
+      ? Math.round((entry.completedSessions / entry.totalSessions) * 100)
+      : 0;
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.totalSessions - a.totalSessions);
+}
+
+export async function getTaskBreakdown(
+  userId: string,
+  since: Date,
+  limit = 10
+): Promise<TaskBreakdown[]> {
+  const { projects } = await import("@devbrain/db/schema");
+
+  const rows = await db
+    .select({
+      taskId: pomodoroSessions.taskId,
+      taskTitle: tasks.title,
+      projectName: projects.name,
+      status: pomodoroSessions.status,
+      sessionCount: count(),
+      totalMins: sum(pomodoroSessions.workDurationMin),
+    })
+    .from(pomodoroSessions)
+    .innerJoin(tasks, eq(tasks.id, pomodoroSessions.taskId))
+    .innerJoin(projects, eq(projects.id, pomodoroSessions.projectId))
+    .where(
+      and(
+        eq(pomodoroSessions.userId, userId),
+        gte(pomodoroSessions.startedAt, since),
+        sql`${pomodoroSessions.taskId} IS NOT NULL`
+      )
+    )
+    .groupBy(pomodoroSessions.taskId, tasks.title, projects.name, pomodoroSessions.status)
+    .orderBy(desc(count()));
+
+  const map = new Map<string, TaskBreakdown>();
+  for (const r of rows) {
+    if (!r.taskId || !r.taskTitle) continue;
+    const n = Number(r.sessionCount);
+    const mins = Number(r.totalMins ?? 0);
+    if (!map.has(r.taskId)) {
+      map.set(r.taskId, {
+        taskId: r.taskId,
+        taskTitle: r.taskTitle,
+        projectName: r.projectName,
+        totalSessions: 0,
+        completedSessions: 0,
+        totalMinutes: 0,
+      });
+    }
+    const entry = map.get(r.taskId)!;
+    entry.totalSessions += n;
+    entry.totalMinutes += mins;
+    if (r.status === "completed") entry.completedSessions += n;
+  }
+
+  return Array.from(map.values())
+    .sort((a, b) => b.totalSessions - a.totalSessions)
+    .slice(0, limit);
+}
+
+export async function getDailyHeatmap(
+  userId: string,
+  days = 84
+): Promise<DailyCount[]> {
+  const since = new Date(Date.now() - days * 86400000);
+  const rows = await db
+    .select({
+      dateStr: sql<string>`to_char(${pomodoroSessions.startedAt}, 'YYYY-MM-DD')`,
+      sessionCount: count(),
+    })
+    .from(pomodoroSessions)
+    .where(
+      and(
+        eq(pomodoroSessions.userId, userId),
+        eq(pomodoroSessions.status, "completed"),
+        gte(pomodoroSessions.startedAt, since)
+      )
+    )
+    .groupBy(sql`to_char(${pomodoroSessions.startedAt}, 'YYYY-MM-DD')`);
+
+  return rows.map((r) => ({ date: r.dateStr, count: Number(r.sessionCount) }));
+}
+
+export async function getDailyTrend(
+  userId: string,
+  days = 14
+): Promise<DailyCount[]> {
+  const since = new Date(Date.now() - days * 86400000);
+  const rows = await db
+    .select({
+      dateStr: sql<string>`to_char(${pomodoroSessions.startedAt}, 'YYYY-MM-DD')`,
+      sessionCount: count(),
+    })
+    .from(pomodoroSessions)
+    .where(
+      and(
+        eq(pomodoroSessions.userId, userId),
+        eq(pomodoroSessions.status, "completed"),
+        gte(pomodoroSessions.startedAt, since)
+      )
+    )
+    .groupBy(sql`to_char(${pomodoroSessions.startedAt}, 'YYYY-MM-DD')`)
+    .orderBy(sql`to_char(${pomodoroSessions.startedAt}, 'YYYY-MM-DD')`);
+
+  // Fill in missing days with 0
+  const map = new Map(rows.map((r) => [r.dateStr, Number(r.sessionCount)]));
+  const result: DailyCount[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = d.toISOString().split("T")[0];
+    result.push({ date: key, count: map.get(key) ?? 0 });
+  }
+  return result;
+}
+
+export async function getRecentSessions(
+  userId: string,
+  limit = 20,
+  since?: Date
+): Promise<PomodoroSessionWithTask[]> {
+  const { projects } = await import("@devbrain/db/schema");
+
+  const conditions = [eq(pomodoroSessions.userId, userId)];
+  if (since) conditions.push(gte(pomodoroSessions.startedAt, since));
+
+  const rows = await db
+    .select({
+      id: pomodoroSessions.id,
+      taskId: pomodoroSessions.taskId,
+      projectId: pomodoroSessions.projectId,
+      userId: pomodoroSessions.userId,
+      workDurationMin: pomodoroSessions.workDurationMin,
+      status: pomodoroSessions.status,
+      startedAt: pomodoroSessions.startedAt,
+      completedAt: pomodoroSessions.completedAt,
+      interruptedAt: pomodoroSessions.interruptedAt,
+      interruptionNote: pomodoroSessions.interruptionNote,
+      sessionNote: pomodoroSessions.sessionNote,
+      createdAt: pomodoroSessions.createdAt,
+      taskTitle: tasks.title,
+      projectName: projects.name,
+    })
+    .from(pomodoroSessions)
+    .leftJoin(tasks, eq(tasks.id, pomodoroSessions.taskId))
+    .innerJoin(projects, eq(projects.id, pomodoroSessions.projectId))
+    .where(and(...conditions))
+    .orderBy(desc(pomodoroSessions.startedAt))
+    .limit(limit);
+
+  return rows as unknown as PomodoroSessionWithTask[];
 }
 
 export async function getTodaySessionCount(userId: string): Promise<number> {
