@@ -18,11 +18,15 @@ const NO_SHELL_PATHS = new Set<string>([
   // Add other public/auth paths here as needed
 ]);
 
+type StarredProject = { slug: string; name: string; color: string };
+
 export function AppShellWrapper({
   user,
+  starredProjects = [],
   children,
 }: {
   user: CurrentUser | null;
+  starredProjects?: StarredProject[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -31,7 +35,7 @@ export function AppShellWrapper({
   }
   return (
     <PomodoroProvider>
-      <AppShell user={user}>{children}</AppShell>
+      <AppShell user={user} starredProjects={starredProjects}>{children}</AppShell>
       <FocusTimer />
       <SessionCompleteModal />
     </PomodoroProvider>

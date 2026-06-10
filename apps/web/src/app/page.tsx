@@ -334,16 +334,18 @@ export default async function HomePage() {
                 </Link>
               );
             })}
-            <Link href="/projects">
-              <Card className="h-full cursor-pointer border-dashed transition-colors hover:border-primary/40">
-                <CardContent className="flex h-full min-h-[150px] flex-col items-center justify-center gap-2 p-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50">
-                    <Plus className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">New Project</span>
-                </CardContent>
-              </Card>
-            </Link>
+            {active.length > 0 && (
+              <Link href="/projects">
+                <Card className="h-full cursor-pointer border-dashed transition-colors hover:border-primary/40">
+                  <CardContent className="flex h-full min-h-[150px] flex-col items-center justify-center gap-2 p-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50">
+                      <Plus className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">New Project</span>
+                  </CardContent>
+                </Card>
+              </Link>
+            )}
           </div>
         </div>
 

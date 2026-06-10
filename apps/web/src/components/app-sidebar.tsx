@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect, useTransition } from "react";
 import {
   Brain,
   Home,
@@ -24,10 +24,18 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { QuickCreateDialog } from "@/components/quick-create-dialog";
+import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import { createProjectAction } from "@/lib/actions/projects";
 
 const STORAGE_KEY = "devbrain:sidebar:collapsed";
 
+const COLOR_BG: Record<string, string> = {
+  violet: "bg-violet-500", emerald: "bg-emerald-500", blue: "bg-blue-500",
+  orange: "bg-orange-500", pink: "bg-pink-500", cyan: "bg-cyan-500", yellow: "bg-yellow-500",
+};
+
 type CreateType = "note" | "whiteboard" | "adr" | "task" | "meeting";
+type StarredProject = { slug: string; name: string; color: string };
 
 interface NavItem {
   label: string;
@@ -43,11 +51,6 @@ const mainNav: NavItem[] = [
   { label: "Settings",  href: "/settings",  icon: Settings },
 ];
 
-const starredProjects = [
-  { name: "AI Customer Service Bot", slug: "ai-customer-service-bot", color: "bg-violet-500" },
-  { name: "ElderCare Monitoring",    slug: "eldercare-monitoring",    color: "bg-emerald-500" },
-  { name: "DevOps Automation",       slug: "devops-automation",       color: "bg-blue-500" },
-];
 
 interface QuickCreateItem {
   label: string;
@@ -63,7 +66,7 @@ const quickCreate: QuickCreateItem[] = [
   { label: "New Meeting",    icon: Calendar,    action: "meeting" },
 ];
 
-type SidebarUser = { name: string; email: string } | null;
+type SidebarUser = { name: string; email: string; id?: string } | null;
 
 function NavBtn({
   item,
@@ -116,12 +119,21 @@ function NavBtn({
   );
 }
 
-export function AppSidebar({ user: _user }: { user?: SidebarUser } = {}) {
+export function AppSidebar({
+  user: _user,
+  starredProjects = [],
+}: {
+  user?: SidebarUser;
+  starredProjects?: StarredProject[];
+} = {}) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerType, setPickerType] = useState<CreateType | null>(null);
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -139,6 +151,21 @@ export function AppSidebar({ user: _user }: { user?: SidebarUser } = {}) {
   function handleQuickCreate(action: CreateType) {
     setPickerType(action);
     setPickerOpen(true);
+  }
+
+  async function handleCreateProject(formData: {
+    name: string; description: string; color: string; template: string;
+  }) {
+    const fd = new FormData();
+    fd.append("name", formData.name);
+    fd.append("description", formData.description);
+    fd.append("color", formData.color);
+    fd.append("template", formData.template);
+    const result = await createProjectAction(fd);
+    if (result.ok) {
+      startTransition(() => { router.refresh(); });
+    }
+    return result;
   }
 
   // Avoid layout shift: render expanded until mounted
@@ -191,36 +218,48 @@ export function AppSidebar({ user: _user }: { user?: SidebarUser } = {}) {
                 <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Starred Projects
                 </h3>
-                <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Add">
+                <button
+                  type="button"
+                  onClick={() => setCreateProjectOpen(true)}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="New project"
+                >
                   <Plus className="h-3 w-3" />
                 </button>
               </div>
             </div>
           )}
-          <ul className="space-y-0.5">
-            {starredProjects.map((p) => {
-              const inner = (
-                <Link href={`/projects/${p.slug}`}
-                  className={cn(
-                    "flex items-center rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
-                    isCollapsed && "justify-center"
-                  )}>
-                  <div className={cn("h-2 w-2 shrink-0 rounded-sm", p.color)} />
-                  {!isCollapsed && <span className="ml-2.5 truncate">{p.name}</span>}
-                </Link>
-              );
-              return (
-                <li key={p.slug}>
-                  {isCollapsed ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>{inner}</TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">{p.name}</TooltipContent>
-                    </Tooltip>
-                  ) : inner}
-                </li>
-              );
-            })}
-          </ul>
+          {starredProjects.length > 0 ? (
+            <ul className="space-y-0.5">
+              {starredProjects.map((p) => {
+                const dotColor = COLOR_BG[p.color] ?? "bg-muted";
+                const inner = (
+                  <Link href={`/projects/${p.slug}`}
+                    className={cn(
+                      "flex items-center rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+                      isCollapsed && "justify-center"
+                    )}>
+                    <div className={cn("h-2 w-2 shrink-0 rounded-sm", dotColor)} />
+                    {!isCollapsed && <span className="ml-2.5 truncate">{p.name}</span>}
+                  </Link>
+                );
+                return (
+                  <li key={p.slug}>
+                    {isCollapsed ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>{inner}</TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">{p.name}</TooltipContent>
+                      </Tooltip>
+                    ) : inner}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : !isCollapsed ? (
+            <p className="px-2.5 pb-1 text-[10px] text-muted-foreground/60">
+              No starred projects yet.
+            </p>
+          ) : null}
 
           {!isCollapsed && (
             <>
@@ -275,6 +314,11 @@ export function AppSidebar({ user: _user }: { user?: SidebarUser } = {}) {
         open={pickerOpen}
         type={pickerType}
         onClose={() => setPickerOpen(false)}
+      />
+      <CreateProjectDialog
+        open={createProjectOpen}
+        onOpenChange={setCreateProjectOpen}
+        onCreate={handleCreateProject}
       />
     </TooltipProvider>
   );

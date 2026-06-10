@@ -45,10 +45,19 @@ type CreateResult = { ok: true; slug: string; id: string } | { ok: false; error:
 
 export function CreateProjectDialog({
   onCreate,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: {
   onCreate: (input: CreateInput) => Promise<CreateResult>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (o: boolean) => {
+    setInternalOpen(o);
+    controlledOnOpenChange?.(o);
+  };
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("violet");
@@ -82,12 +91,14 @@ export function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="h-4 w-4" />
-          New Project
-        </Button>
-      </DialogTrigger>
+      {controlledOpen === undefined && (
+        <DialogTrigger asChild>
+          <Button size="sm">
+            <Plus className="h-4 w-4" />
+            New Project
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
