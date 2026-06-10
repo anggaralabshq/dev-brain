@@ -15,7 +15,7 @@ import { SessionCompleteModal } from "@/components/pomodoro/session-complete-mod
 
 const NO_SHELL_PATHS = new Set<string>([
   "/login",
-  // Add other public/auth paths here as needed
+  "/auth/error",
 ]);
 
 type StarredProject = { slug: string; name: string; color: string };
