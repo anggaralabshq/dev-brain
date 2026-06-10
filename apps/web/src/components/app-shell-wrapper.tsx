@@ -23,10 +23,12 @@ type StarredProject = { slug: string; name: string; color: string };
 export function AppShellWrapper({
   user,
   starredProjects = [],
+  projectCount = 0,
   children,
 }: {
   user: CurrentUser | null;
   starredProjects?: StarredProject[];
+  projectCount?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -35,7 +37,7 @@ export function AppShellWrapper({
   }
   return (
     <PomodoroProvider>
-      <AppShell user={user} starredProjects={starredProjects}>{children}</AppShell>
+      <AppShell user={user} starredProjects={starredProjects} projectCount={projectCount}>{children}</AppShell>
       <FocusTimer />
       <SessionCompleteModal />
     </PomodoroProvider>

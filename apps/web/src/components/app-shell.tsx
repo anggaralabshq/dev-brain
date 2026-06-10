@@ -7,15 +7,17 @@ type StarredProject = { slug: string; name: string; color: string };
 export function AppShell({
   user,
   starredProjects = [],
+  projectCount = 0,
   children,
 }: {
   user: CurrentUser | null;
   starredProjects?: StarredProject[];
+  projectCount?: number;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <AppSidebar user={user} starredProjects={starredProjects} />
+      <AppSidebar user={user} starredProjects={starredProjects} projectCount={projectCount} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <AppTopbar user={user} />
         <main className="flex-1 overflow-y-auto">{children}</main>

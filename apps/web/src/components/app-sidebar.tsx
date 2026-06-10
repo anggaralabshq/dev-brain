@@ -44,12 +44,14 @@ interface NavItem {
   badge?: string | number;
 }
 
-const mainNav: NavItem[] = [
-  { label: "Home",      href: "/",          icon: Home },
-  { label: "Projects",  href: "/projects",  icon: FolderKanban, badge: 7 },
-  { label: "Focus",     href: "/focus",     icon: Timer },
-  { label: "Settings",  href: "/settings",  icon: Settings },
-];
+function buildMainNav(projectCount: number): NavItem[] {
+  return [
+    { label: "Home",      href: "/",          icon: Home },
+    { label: "Projects",  href: "/projects",  icon: FolderKanban, badge: projectCount > 0 ? projectCount : undefined },
+    { label: "Focus",     href: "/focus",     icon: Timer },
+    { label: "Settings",  href: "/settings",  icon: Settings },
+  ];
+}
 
 
 interface QuickCreateItem {
@@ -122,12 +124,15 @@ function NavBtn({
 export function AppSidebar({
   user: _user,
   starredProjects = [],
+  projectCount = 0,
 }: {
   user?: SidebarUser;
   starredProjects?: StarredProject[];
+  projectCount?: number;
 } = {}) {
   const pathname = usePathname();
   const router = useRouter();
+  const mainNav = buildMainNav(projectCount);
   const [, startTransition] = useTransition();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);

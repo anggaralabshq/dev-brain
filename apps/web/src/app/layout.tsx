@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShellWrapper } from "@/components/app-shell-wrapper";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getStarredProjects } from "@/lib/db/projects";
+import { getAllProjects } from "@/lib/db/projects";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,16 +27,19 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getCurrentUser();
-  const starredProjects = user
-    ? (await getStarredProjects(user.id)).map((p) => ({ slug: p.slug, name: p.name, color: p.color }))
-    : [];
+  const allProjects = user ? await getAllProjects(user.id) : [];
+  const starredProjects = allProjects
+    .filter((p) => p.starred)
+    .slice(0, 5)
+    .map((p) => ({ slug: p.slug, name: p.name, color: p.color }));
+  const projectCount = allProjects.length;
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="h-full">
-        <AppShellWrapper user={user} starredProjects={starredProjects}>{children}</AppShellWrapper>
+        <AppShellWrapper user={user} starredProjects={starredProjects} projectCount={projectCount}>{children}</AppShellWrapper>
       </body>
     </html>
   );
