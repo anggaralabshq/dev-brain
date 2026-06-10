@@ -31,8 +31,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    // preserve jwt + session callbacks from edge-config
+    ...authConfig.callbacks,
     async signIn({ profile }) {
-      if (!allowedLogin) return true; // no restriction if env var not set
+      if (!allowedLogin) return true;
+      // profile.login = GitHub username (e.g. "anggaralabshq")
       const login = (profile?.login as string | undefined)?.toLowerCase().trim();
       return login === allowedLogin;
     },
