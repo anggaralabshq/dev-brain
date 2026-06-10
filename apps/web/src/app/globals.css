@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 /* ============= DevBrain Design Tokens ============= */
 /* Extracted from mockup: dark mode-first, purple/violet accent */

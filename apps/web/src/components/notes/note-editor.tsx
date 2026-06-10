@@ -4,6 +4,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
 import { useEffect, useState, useTransition } from "react";
 import {
   Bold,
@@ -19,8 +20,8 @@ import {
   Redo2,
   Loader2,
   Check,
+  ImageIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { updateNoteAction, createNoteAction } from "@/lib/actions/notes";
 
@@ -56,7 +57,7 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       <button
         type="button"
         onClick={() => {
-          const url = window.prompt("URL");
+          const url = window.prompt("Link URL");
           if (url) editor.chain().focus().setLink({ href: url }).run();
         }}
         title="Add link"
@@ -66,6 +67,17 @@ function Toolbar({ editor }: { editor: Editor | null }) {
         )}
       >
         <Link2 className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          const url = window.prompt("Image URL");
+          if (url) editor.chain().focus().setImage({ src: url }).run();
+        }}
+        title="Insert image"
+        className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <ImageIcon className="h-3.5 w-3.5" />
       </button>
       <div className="mx-1 h-4 w-px bg-border" />
       <button
@@ -121,6 +133,9 @@ export function NoteEditor({
         openOnClick: false,
         HTMLAttributes: { class: "text-primary underline" },
       }),
+      Image.configure({
+        HTMLAttributes: { class: "rounded-md max-w-full" },
+      }),
       Placeholder.configure({
         placeholder: 'Type your note here. Use [[note-title]] to link other notes.',
       }),
@@ -129,7 +144,7 @@ export function NoteEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-invert max-w-none min-h-[400px] focus:outline-none px-4 py-3 text-sm leading-relaxed",
+          "prose prose-invert prose-sm max-w-none min-h-[400px] focus:outline-none px-4 py-3 leading-relaxed",
       },
     },
     onUpdate: ({ editor }) => {
@@ -163,7 +178,6 @@ export function NoteEditor({
         if (result.ok) {
           setCurrentId(result.id);
           setStatus("saved");
-          // Redirect to edit mode
           if (typeof window !== "undefined") {
             window.history.replaceState({}, "", `/notes/${result.slug}`);
           }
@@ -180,6 +194,8 @@ export function NoteEditor({
       }
     });
   };
+
+  void isPending;
 
   return (
     <div className="rounded-md border border-border bg-card">

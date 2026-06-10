@@ -46,6 +46,7 @@ export default async function WhiteboardEditorPage({
         whiteboardId={wb.id}
         initialData={wb.data ? JSON.stringify(wb.data) : null}
         initialTitle={wb.title}
+        projectSlug={slug}
       />
     </div>
   );

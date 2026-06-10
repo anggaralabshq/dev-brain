@@ -9,9 +9,11 @@ import {
 } from "tldraw";
 import "tldraw/tldraw.css";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Loader2, Save, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, Save, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { saveWhiteboardAction } from "@/lib/actions/whiteboards";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { saveWhiteboardAction, deleteWhiteboardAction } from "@/lib/actions/whiteboards";
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error";
 
@@ -37,14 +39,18 @@ export function WhiteboardEditor({
   whiteboardId,
   initialData,
   initialTitle,
+  projectSlug,
 }: {
   whiteboardId: string;
   initialData?: string | null;
   initialTitle: string;
+  projectSlug: string;
 }) {
+  const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
   const [status, setStatus] = useState<SaveStatus>("saved");
   const [isMounted, setIsMounted] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [, startTransition] = useTransition();
   const editorRef = useRef<Editor | null>(null);
   const lastSaveRef = useRef<string>("");
@@ -154,7 +160,30 @@ export function WhiteboardEditor({
           <Save className="h-3.5 w-3.5" />
           Save
         </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setDeleteOpen(true)}
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
       </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete diagram?"
+        description="This diagram will be permanently deleted. This cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          startTransition(async () => {
+            await deleteWhiteboardAction(whiteboardId);
+            router.push(`/projects/${projectSlug}/architecture`);
+          });
+        }}
+      />
 
       {/* tldraw canvas */}
       <div className="relative tldraw-host" style={{ flex: 1, minHeight: 400 }}>
