@@ -1,0 +1,16 @@
+{
+  "name": "devbrain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Second Brain for Developers",
+  "scripts": {
+    "dev": "pnpm --filter @devbrain/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

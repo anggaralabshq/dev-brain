@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devbrain-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devbrain
+      POSTGRES_PASSWORD: devbrain_dev_only
+      POSTGRES_DB: devbrain
+    ports:
+      - "5432:5432"
+    volumes:
+      - devbrain_pgdata:/var/lib/postgresql/data
+      - ./packages/db/drizzle:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devbrain -d devbrain"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devbrain-network
+
+  # Optional: Web UI for inspecting DB
+  adminer:
+    image: adminer:latest
+    container_name: devbrain-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - devbrain-network
+
+  # Next.js Web App
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: devbrain-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://devbrain:devbrain_dev_only@postgres:5432/devbrain"
+      NEXT_PUBLIC_APP_URL: "${NEXT_PUBLIC_APP_URL:-http://localhost:3000}"
+      AUTH_SECRET: "${AUTH_SECRET}"
+      AUTH_TRUST_HOST: "true"
+      TLDRAW_LICENSE_KEY: "${TLDRAW_LICENSE_KEY:-}"
+      NEXT_PUBLIC_TLDRAW_LICENSE_KEY: "${NEXT_PUBLIC_TLDRAW_LICENSE_KEY:-}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - devbrain-network
+
+volumes:
+  devbrain_pgdata:
+    name: devbrain_pgdata
+
+networks:
+  devbrain-network:
+    name: devbrain-network

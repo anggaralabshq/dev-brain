@@ -1,0 +1,39 @@
+"use client";
+
+/**
+ * Client-side boundary that decides whether to render the AppShell
+ * (sidebar + topbar) or just the raw children.
+ *
+ * Used to hide the shell on /login (and any other public/auth pages).
+ */
+import { usePathname } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
+import type { CurrentUser } from "@/lib/auth/current-user";
+import { PomodoroProvider } from "@/contexts/pomodoro-context";
+import { FocusTimer } from "@/components/pomodoro/focus-timer";
+import { SessionCompleteModal } from "@/components/pomodoro/session-complete-modal";
+
+const NO_SHELL_PATHS = new Set<string>([
+  "/login",
+  // Add other public/auth paths here as needed
+]);
+
+export function AppShellWrapper({
+  user,
+  children,
+}: {
+  user: CurrentUser | null;
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  if (pathname && NO_SHELL_PATHS.has(pathname)) {
+    return <>{children}</>;
+  }
+  return (
+    <PomodoroProvider>
+      <AppShell user={user}>{children}</AppShell>
+      <FocusTimer />
+      <SessionCompleteModal />
+    </PomodoroProvider>
+  );
+}
