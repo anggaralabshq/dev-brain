@@ -7,7 +7,7 @@ import type { NextAuthConfig } from "next-auth";
 export const authConfig: NextAuthConfig = {
   providers: [], // Providers added in main config (need DB)
   session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  pages: { signIn: "/login", error: "/auth/error" },
   callbacks: {
     async jwt({ token, user }) {
       if (user) token.id = user.id;
