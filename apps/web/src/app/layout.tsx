@@ -38,7 +38,7 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="h-full">
+      <body className="h-full" suppressHydrationWarning>
         <AppShellWrapper user={user} starredProjects={starredProjects} projectCount={projectCount}>{children}</AppShellWrapper>
       </body>
     </html>
