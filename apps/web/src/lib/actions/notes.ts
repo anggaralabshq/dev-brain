@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@devbrain/db";
-import { notes } from "@devbrain/db/schema";
+import { notes, projects } from "@devbrain/db/schema";
 import { eq } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/current-user";
 import { createNote as dbCreateNote, updateNote as dbUpdateNote, deleteNote as dbDeleteNote } from "@/lib/db/notes";
@@ -28,8 +28,15 @@ export async function createNoteAction(formData: FormData) {
   });
 
   revalidatePath("/notes");
-  if (created.projectId) revalidatePath(`/projects/${created.slug}`); // project might have notes page
   revalidatePath(`/notes/${created.slug}`);
+  if (created.projectId) {
+    const [project] = await db
+      .select({ slug: projects.slug })
+      .from(projects)
+      .where(eq(projects.id, created.projectId))
+      .limit(1);
+    if (project) revalidatePath(`/projects/${project.slug}/notes`);
+  }
 
   return { ok: true as const, slug: created.slug, id: created.id };
 }
