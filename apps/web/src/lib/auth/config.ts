@@ -13,6 +13,8 @@ declare module "next-auth" {
   }
 }
 
+const allowedLogin = process.env.ALLOWED_GITHUB_LOGIN?.toLowerCase().trim();
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   adapter: DrizzleAdapter(db, {
@@ -28,4 +30,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       allowDangerousEmailAccountLinking: true,
     }),
   ],
+  callbacks: {
+    async signIn({ profile }) {
+      if (!allowedLogin) return true; // no restriction if env var not set
+      const login = (profile?.login as string | undefined)?.toLowerCase().trim();
+      return login === allowedLogin;
+    },
+  },
 });
