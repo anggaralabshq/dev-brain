@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pause, Play, X, Minimize2, Maximize2, Coffee } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePomodoro, WORK_MS, BREAK_MS } from "@/contexts/pomodoro-context";
@@ -15,6 +16,7 @@ function formatMs(ms: number) {
 export function FocusTimer() {
   const { state, pauseSession, resumeSession, abandonSession } = usePomodoro();
   const [minimized, setMinimized] = useState(false);
+  const [abandonConfirmOpen, setAbandonConfirmOpen] = useState(false);
 
   const visible = state.status === "running" || state.status === "paused" || state.status === "break";
   if (!visible) return null;
@@ -70,7 +72,7 @@ export function FocusTimer() {
           {!isBreak && (
             <button
               type="button"
-              onClick={() => { if (confirm("Abandon current session?")) abandonSession(); }}
+              onClick={() => setAbandonConfirmOpen(true)}
               className="rounded p-0.5 text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
               aria-label="Abandon session"
             >
@@ -161,6 +163,15 @@ export function FocusTimer() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={abandonConfirmOpen}
+        onOpenChange={setAbandonConfirmOpen}
+        title="Abandon session?"
+        description="Your current focus session will be marked as abandoned."
+        confirmLabel="Abandon"
+        onConfirm={abandonSession}
+      />
     </div>
   );
 }

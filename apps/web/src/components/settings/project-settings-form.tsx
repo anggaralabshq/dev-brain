@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { Loader2, Check, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,8 @@ export function ProjectSettingsForm({ project }: { project: ProjectWithMeta }) {
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved]     = useState(false);
   const [error, setError]     = useState<string | null>(null);
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const [name, setName]             = useState(project.name);
   const [description, setDescription] = useState(project.description);
@@ -76,18 +79,11 @@ export function ProjectSettingsForm({ project }: { project: ProjectWithMeta }) {
   }
 
   function handleArchive() {
-    if (!confirm("Archive this project? It will be hidden from active projects.")) return;
-    startTransition(async () => {
-      await archiveProjectAction(project.slug);
-      router.push("/projects");
-    });
+    setArchiveConfirm(true);
   }
 
   function handleDelete() {
-    if (!confirm(`Permanently delete "${project.name}"? This cannot be undone.`)) return;
-    startTransition(async () => {
-      await deleteProjectAction(project.slug);
-    });
+    setDeleteConfirm(true);
   }
 
   return (
@@ -225,6 +221,32 @@ export function ProjectSettingsForm({ project }: { project: ProjectWithMeta }) {
           </div>
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={archiveConfirm}
+        onOpenChange={setArchiveConfirm}
+        title="Archive project?"
+        description="The project will be hidden from active projects. You can restore it from settings later."
+        confirmLabel="Archive"
+        variant="default"
+        onConfirm={() => {
+          startTransition(async () => {
+            await archiveProjectAction(project.slug);
+            router.push("/projects");
+          });
+        }}
+      />
+      <ConfirmDialog
+        open={deleteConfirm}
+        onOpenChange={setDeleteConfirm}
+        title={`Delete "${project.name}"?`}
+        description="Permanently deletes this project and all its tasks, notes, ADRs, diagrams, and meetings. This cannot be undone."
+        confirmLabel="Delete forever"
+        onConfirm={() => {
+          startTransition(async () => {
+            await deleteProjectAction(project.slug);
+          });
+        }}
+      />
     </div>
   );
 }

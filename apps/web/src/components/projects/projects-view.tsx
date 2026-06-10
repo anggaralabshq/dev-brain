@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useTransition } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Search, LayoutGrid, List, Filter, Activity, FileText, GitBranch, Network, CheckSquare, Users, FolderKanban } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,7 @@ export function ProjectsView({
   const [view, setView] = useState<ViewMode>("grid");
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [confirmSlug, setConfirmSlug] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -149,11 +151,7 @@ export function ProjectsView({
   };
 
   const handleDelete = (slug: string) => {
-    if (!confirm("Delete this project? This cannot be undone.")) return;
-    startTransition(async () => {
-      await deleteProjectAction(slug);
-      setProjects((prev) => prev.filter((p) => p.slug !== slug));
-    });
+    setConfirmSlug(slug);
   };
 
   const handleToggleStar = (slug: string) => {
@@ -322,6 +320,22 @@ export function ProjectsView({
       <div className="text-center text-xs text-muted-foreground">
         Showing {filtered.length} of {projects.length} projects
       </div>
+
+      <ConfirmDialog
+        open={confirmSlug !== null}
+        onOpenChange={(o) => { if (!o) setConfirmSlug(null); }}
+        title="Delete project?"
+        description="This cannot be undone. All tasks, notes, ADRs, and diagrams in this project will be permanently deleted."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (!confirmSlug) return;
+          startTransition(async () => {
+            await deleteProjectAction(confirmSlug);
+            setProjects((prev) => prev.filter((p) => p.slug !== confirmSlug));
+            setConfirmSlug(null);
+          });
+        }}
+      />
     </div>
   );
 }

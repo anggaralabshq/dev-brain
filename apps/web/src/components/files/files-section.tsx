@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from "next/navigation";
 import {
   FileText, Image, FileCode2, Archive, File, Trash2, Download,
@@ -48,6 +49,7 @@ export function FilesSection({
   const [isPending, startTransition] = useTransition();
   const [dragging, setDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<{ id: string; name: string } | null>(null);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -70,11 +72,7 @@ export function FilesSection({
   }
 
   function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete "${name}"?`)) return;
-    startTransition(async () => {
-      await deleteFileAction(id);
-      router.refresh();
-    });
+    setPendingFile({ id, name });
   }
 
   function handleDownload(file: ProjectFileWithMeta) {
@@ -159,6 +157,22 @@ export function FilesSection({
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingFile !== null}
+        onOpenChange={(o) => { if (!o) setPendingFile(null); }}
+        title={`Delete "${pendingFile?.name}"?`}
+        description="This file will be permanently removed from the project."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (!pendingFile) return;
+          startTransition(async () => {
+            await deleteFileAction(pendingFile.id);
+            setPendingFile(null);
+            router.refresh();
+          });
+        }}
+      />
     </div>
   );
 }

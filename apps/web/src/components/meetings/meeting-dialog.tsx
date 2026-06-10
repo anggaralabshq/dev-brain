@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from "next/navigation";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -196,6 +197,7 @@ function MeetingForm({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const isEdit = !!meeting;
 
   const defaults = getInitialDefaults(meeting, initialDate);
@@ -244,12 +246,7 @@ function MeetingForm({
   }
 
   function handleDelete() {
-    if (!meeting || !confirm("Delete this meeting?")) return;
-    startTransition(async () => {
-      await deleteMeetingAction(meeting.id);
-      onClose();
-      router.refresh();
-    });
+    setDeleteConfirmOpen(true);
   }
 
   return (
@@ -343,6 +340,22 @@ function MeetingForm({
           {isEdit ? "Save" : "Create"}
         </Button>
       </DialogFooter>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete meeting?"
+        description="This meeting will be permanently removed."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (!meeting) return;
+          startTransition(async () => {
+            await deleteMeetingAction(meeting.id);
+            onClose();
+            router.refresh();
+          });
+        }}
+      />
     </>
   );
 }
@@ -364,6 +377,7 @@ export function MeetingDialog({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   // view = read-only detail, edit = edit form, create = new form
   const [mode, setMode] = useState<"view" | "edit" | "create">(() =>
     meeting ? "view" : "create"
@@ -383,36 +397,49 @@ export function MeetingDialog({
   }
 
   function handleDelete() {
-    if (!meeting || !confirm("Delete this meeting?")) return;
-    startTransition(async () => {
-      const { deleteMeetingAction } = await import("@/lib/actions/meetings");
-      await deleteMeetingAction(meeting.id);
-      handleClose();
-      router.refresh();
-    });
+    setDeleteConfirmOpen(true);
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-lg">
-        {effectiveMode === "view" && meeting ? (
-          <MeetingView
-            meeting={meeting}
-            onEdit={() => setMode("edit")}
-            onDelete={handleDelete}
-            onClose={handleClose}
-            isPending={false}
-          />
-        ) : (
-          <MeetingForm
-            meeting={effectiveMode === "edit" ? meeting : null}
-            projectId={projectId}
-            initialDate={initialDate}
-            onClose={handleClose}
-            onSuccess={handleSuccess}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+        <DialogContent className="max-w-lg">
+          {effectiveMode === "view" && meeting ? (
+            <MeetingView
+              meeting={meeting}
+              onEdit={() => setMode("edit")}
+              onDelete={handleDelete}
+              onClose={handleClose}
+              isPending={false}
+            />
+          ) : (
+            <MeetingForm
+              meeting={effectiveMode === "edit" ? meeting : null}
+              projectId={projectId}
+              initialDate={initialDate}
+              onClose={handleClose}
+              onSuccess={handleSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete meeting?"
+        description="This meeting will be permanently removed."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (!meeting) return;
+          startTransition(async () => {
+            const { deleteMeetingAction } = await import("@/lib/actions/meetings");
+            await deleteMeetingAction(meeting.id);
+            handleClose();
+            router.refresh();
+          });
+        }}
+      />
+    </>
   );
 }

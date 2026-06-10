@@ -12,7 +12,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteNoteAction, togglePinAction } from "@/lib/actions/notes";
 
 export type NoteListItem = {
@@ -30,6 +31,7 @@ export type NoteListItem = {
 
 export function NoteListItem({ note, href }: { note: NoteListItem; href: string }) {
   const [isPending, startTransition] = useTransition();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const updated = new Date(note.updatedAt);
 
   return (
@@ -99,11 +101,7 @@ export function NoteListItem({ note, href }: { note: NoteListItem; href: string 
             <DropdownMenuItem
               onClick={(e) => {
                 e.preventDefault();
-                if (!confirm("Delete this note?")) return;
-                startTransition(async () => {
-                  await deleteNoteAction(note.id);
-                  window.location.reload();
-                });
+                setDeleteConfirmOpen(true);
               }}
               className="text-destructive focus:text-destructive"
             >
@@ -116,6 +114,19 @@ export function NoteListItem({ note, href }: { note: NoteListItem; href: string 
       {isPending && (
         <div className="absolute right-2 top-2 h-2 w-2 animate-pulse rounded-full bg-amber-500" />
       )}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete note?"
+        description="This note will be permanently deleted."
+        confirmLabel="Delete"
+        onConfirm={() =>
+          startTransition(async () => {
+            await deleteNoteAction(note.id);
+            window.location.reload();
+          })
+        }
+      />
     </Card>
   );
 }

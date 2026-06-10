@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DndContext,
   DragOverlay,
@@ -82,6 +83,8 @@ function TaskCardInner({
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [focusConfirmOpen, setFocusConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const { state: pomodoroState, startSession } = usePomodoro();
 
   const setStatus = (status: string) => {
@@ -96,7 +99,8 @@ function TaskCardInner({
       pomodoroState.taskId !== task.id &&
       (pomodoroState.status === "running" || pomodoroState.status === "paused");
     if (otherActive) {
-      if (!confirm(`Abandon session for "${pomodoroState.taskName}" and start this task?`)) return;
+      setFocusConfirmOpen(true);
+      return;
     }
     startSession(task.id, task.title, task.projectId, task.estimatedPomodoros ?? 4);
   };
@@ -163,10 +167,7 @@ function TaskCardInner({
               <CheckCircle2 className="h-3.5 w-3.5" />Mark as Done
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => {
-                if (!confirm("Delete this task?")) return;
-                startTransition(async () => { await deleteTaskAction(task.id); });
-              }}
+              onClick={() => setDeleteConfirmOpen(true)}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="h-3.5 w-3.5" />Delete
@@ -217,6 +218,24 @@ function TaskCardInner({
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={focusConfirmOpen}
+        onOpenChange={setFocusConfirmOpen}
+        title="Switch focus session?"
+        description={`Abandon "${pomodoroState.taskName}" and start this task?`}
+        confirmLabel="Switch"
+        variant="default"
+        onConfirm={() => startSession(task.id, task.title, task.projectId, task.estimatedPomodoros ?? 4)}
+      />
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete task?"
+        description="This task will be permanently deleted."
+        confirmLabel="Delete"
+        onConfirm={() => startTransition(async () => { await deleteTaskAction(task.id); })}
+      />
     </Card>
   );
 }
