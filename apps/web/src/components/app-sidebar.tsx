@@ -188,7 +188,7 @@ export function AppSidebar({
           </div>
           {!isCollapsed && (
             <div className="leading-tight overflow-hidden">
-              <div className="text-sm font-semibold text-foreground">DevBrain</div>
+              <div className="text-sm font-semibold text-foreground">Anggaralabs</div>
               <div className="text-[10px] text-muted-foreground">Second Brain for Developers</div>
             </div>
           )}
