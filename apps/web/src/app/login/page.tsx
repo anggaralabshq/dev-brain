@@ -1,5 +1,12 @@
 import { LoginForm } from "@/components/login-form";
-import { Brain } from "lucide-react";
+import { Brain, GitBranch, FileText, CheckSquare, Network } from "lucide-react";
+
+const FEATURES = [
+  { icon: FileText,   label: "Notes & Knowledge Base" },
+  { icon: CheckSquare, label: "Task Management" },
+  { icon: GitBranch,  label: "Architecture Decision Records" },
+  { icon: Network,    label: "Diagrams & Whiteboards" },
+];
 
 export default function LoginPage({
   searchParams,
@@ -7,24 +14,70 @@ export default function LoginPage({
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-6">
-        {/* Logo */}
-        <div className="flex flex-col items-center text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15">
-            <Brain className="h-6 w-6 text-primary" />
+    <div className="flex min-h-screen bg-background">
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-card border-r border-border p-12">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
+            <Brain className="h-4 w-4 text-primary" />
           </div>
-          <h1 className="mt-3 text-xl font-semibold tracking-tight">DevBrain</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Second Brain for Developers
-          </p>
+          <span className="text-sm font-semibold tracking-tight">DevBrain</span>
         </div>
 
-        <LoginForm searchParams={searchParams} />
+        <div className="space-y-8">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight leading-snug">
+              Your second brain<br />for development work.
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              Keep projects, decisions, and knowledge organized in one place.
+              Built for developers who think in systems.
+            </p>
+          </div>
 
-        <p className="text-center text-[10px] text-muted-foreground">
-          By signing in, you agree to keep your knowledge graph tidy.
+          <div className="space-y-3">
+            {FEATURES.map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-3">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+                  <Icon className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <span className="text-sm text-muted-foreground">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground/60">
+          © {new Date().getFullYear()} DevBrain
         </p>
+      </div>
+
+      {/* Right panel — login */}
+      <div className="flex flex-1 flex-col items-center justify-center p-8">
+        <div className="w-full max-w-sm space-y-8">
+          {/* Mobile logo */}
+          <div className="flex flex-col items-center gap-2 lg:hidden">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15">
+              <Brain className="h-5 w-5 text-primary" />
+            </div>
+            <span className="text-lg font-semibold tracking-tight">DevBrain</span>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">Welcome back</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Sign in with your GitHub account to continue.
+            </p>
+          </div>
+
+          <LoginForm searchParams={searchParams} />
+
+          <p className="text-center text-[11px] text-muted-foreground">
+            Access is granted via GitHub OAuth.{" "}
+            <br className="hidden sm:block" />
+            Your profile info is only used to identify you.
+          </p>
+        </div>
       </div>
     </div>
   );
