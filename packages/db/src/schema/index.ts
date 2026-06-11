@@ -11,3 +11,4 @@ export * from "./whiteboards";
 export * from "./meetings";
 export * from "./project-files";
 export * from "./pomodoro";
+export * from "./ai-chats";
