@@ -29,6 +29,16 @@ const MINIMAX_API_URL = process.env.MINIMAX_API_URL ?? "https://api.minimax.io/v
 const MINIMAX_MODEL = process.env.MINIMAX_MODEL ?? "MiniMax-M2.7-Highspeed";
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handleChat(req);
+  } catch (err) {
+    console.error("[ai/chat] Unhandled error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: message }), { status: 500 });
+  }
+}
+
+async function handleChat(req: NextRequest) {
   let user: Awaited<ReturnType<typeof requireUser>>;
   try {
     user = await requireUser();
