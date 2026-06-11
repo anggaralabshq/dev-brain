@@ -193,7 +193,12 @@ export function diagramSpecToSnapshot(opts: {
     });
   });
 
-  // Schema sequences must exactly match the running tldraw version (extracted from real DB snapshot)
+  // loadStoreSnapshot expects { schema, store: Record<id, record> } — NOT an array.
+  // Schema sequences must exactly match the running tldraw version (extracted from real DB snapshot).
+  const store = Object.fromEntries(
+    (records as Array<{ id: string }>).map((r) => [r.id, r])
+  );
+
   return {
     schema: {
       schemaVersion: 2,
@@ -228,6 +233,6 @@ export function diagramSpecToSnapshot(opts: {
         "com.tldraw.instance_page_state": 5,
       },
     },
-    records,
+    store,
   };
 }

@@ -30,9 +30,16 @@ async function loadTldrawDocument(editor: Editor, json: string): Promise<void> {
 
   // Legacy data saved via editor.store.getSnapshot() lacks tldrawFileFormatVersion.
   // Fall back to loadSnapshot for that format.
+  // Also handle AI-generated snapshots that used { schema, records: [...] } (wrong format) —
+  // convert to { schema, store: {id: record} } before loading.
   if (parsed.tldrawFileFormatVersion === undefined) {
+    let snapshot = parsed as Record<string, unknown>;
+    if (Array.isArray(snapshot.records) && !snapshot.store) {
+      const records = snapshot.records as Array<{ id: string }>;
+      snapshot = { schema: snapshot.schema, store: Object.fromEntries(records.map((r) => [r.id, r])) };
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    editor.store.loadStoreSnapshot(parsed as any);
+    editor.store.loadStoreSnapshot(snapshot as any);
     return;
   }
 
