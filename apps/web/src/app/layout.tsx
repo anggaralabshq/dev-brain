@@ -28,16 +28,19 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getCurrentUser();
-  const [allProjects, notifData] = await Promise.all([
-    user ? getAllProjects(user.id) : Promise.resolve([]),
-    user
-      ? Promise.all([getNotifications(user.id), getNotificationsSeenAt(user.id)])
-      : Promise.resolve([[], null] as [Awaited<ReturnType<typeof getNotifications>>, Date | null]),
-  ]);
-  const [notifItems, seenAt] = notifData;
-  const unreadCount = user
-    ? notifItems.filter((n) => !seenAt || n.timestamp > seenAt).length
-    : 0;
+  const allProjects = user ? await getAllProjects(user.id).catch(() => []) : [];
+  let unreadCount = 0;
+  if (user) {
+    try {
+      const [notifItems, seenAt] = await Promise.all([
+        getNotifications(user.id),
+        getNotificationsSeenAt(user.id),
+      ]);
+      unreadCount = notifItems.filter((n) => !seenAt || n.timestamp > seenAt).length;
+    } catch {
+      // notifications_seen_at column may not exist yet in production — degrade gracefully
+    }
+  }
   const starredProjects = allProjects
     .filter((p) => p.starred)
     .slice(0, 5)
