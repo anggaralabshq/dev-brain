@@ -6,6 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { createLowlight, common } from "lowlight";
+import { Markdown } from "tiptap-markdown";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   Bold,
@@ -168,6 +169,13 @@ export function NoteEditor({
       Image.configure({
         allowBase64: true,
         HTMLAttributes: { class: "rounded-md max-w-full" },
+      }),
+      Markdown.configure({
+        html: true,
+        tightLists: true,
+        bulletListMarker: "-",
+        transformPastedText: true,
+        transformCopiedText: false,
       }),
       Placeholder.configure({
         placeholder: "Type your note here. Markdown shortcuts work: # heading, **bold**, `code`, > quote…",
