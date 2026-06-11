@@ -13,46 +13,11 @@ import {
   getMessages,
   deleteChat,
 } from "@/lib/db/ai-chats";
+import { marked } from "marked";
 import type { AIAction, AIActionResult } from "@/lib/ai/types";
 
 function markdownToHtml(md: string): string {
-  const lines = md.split("\n");
-  const html: string[] = [];
-  let inList = false;
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-    if (line.startsWith("### ")) {
-      if (inList) { html.push("</ul>"); inList = false; }
-      html.push(`<h3>${inline(line.slice(4))}</h3>`);
-    } else if (line.startsWith("## ")) {
-      if (inList) { html.push("</ul>"); inList = false; }
-      html.push(`<h2>${inline(line.slice(3))}</h2>`);
-    } else if (line.startsWith("# ")) {
-      if (inList) { html.push("</ul>"); inList = false; }
-      html.push(`<h1>${inline(line.slice(2))}</h1>`);
-    } else if (line.startsWith("- ") || line.startsWith("* ")) {
-      if (!inList) { html.push("<ul>"); inList = true; }
-      html.push(`<li>${inline(line.slice(2))}</li>`);
-    } else if (/^\d+\.\s/.test(line)) {
-      if (inList) { html.push("</ul>"); inList = false; }
-      html.push(`<li>${inline(line.replace(/^\d+\.\s/, ""))}</li>`);
-    } else if (line === "") {
-      if (inList) { html.push("</ul>"); inList = false; }
-    } else {
-      if (inList) { html.push("</ul>"); inList = false; }
-      html.push(`<p>${inline(line)}</p>`);
-    }
-  }
-  if (inList) html.push("</ul>");
-  return html.join("");
-}
-
-function inline(s: string): string {
-  return s
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>");
+  return marked.parse(md, { async: false, gfm: true }) as string;
 }
 
 export async function executeAIAction(action: AIAction): Promise<AIActionResult> {
