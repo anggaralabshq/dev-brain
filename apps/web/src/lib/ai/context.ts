@@ -28,7 +28,8 @@ export async function buildContext(opts: {
   const base = `You are DevBrain AI, an intelligent assistant embedded in DevBrain — a second brain app for developers.
 You help ${userName} with questions about their projects, notes, tasks, architecture decisions, and anything else related to their work.
 Today is ${today}. Answer in the same language the user writes in (Indonesian or English).
-Be concise, technical, and practical. Format code with backticks.`;
+Be concise, technical, and practical. Format code with backticks.
+If the user asks you to create a diagram, draw, or visualize architecture, reply that the diagram feature is coming soon and is not yet available.`;
 
   // Global view — load all projects + all notes
   if (!projectSlug) {
@@ -143,12 +144,6 @@ When user explicitly asks you to CREATE, UPDATE, DELETE, or MANAGE something, em
 Explain what you're doing first, then emit the action tags.
 
 ### Action type guide — pick EXACTLY the right one:
-
-**create_diagram** → Use when user asks to DRAW, VISUALIZE, or MAP something as a diagram/graph with boxes and arrows.
-Keywords: "buatkan diagram", "gambarkan arsitektur", "visualisasikan", "draw", "diagram", "buat graph", "architecture diagram", "flow diagram", "sequence diagram".
-Node colors: blue, violet, green, red, orange, yellow, grey, cyan, purple, pink
-Node shapes: rectangle (default), ellipse, diamond, hexagon, circle
-<devbrain-action>{"type":"create_diagram","title":"Diagram title","projectSlug":"slug","nodes":[{"id":"n1","label":"Client","color":"blue","shape":"rectangle"},{"id":"n2","label":"API","color":"violet"},{"id":"n3","label":"Database","color":"green","shape":"ellipse"}],"edges":[{"from":"n1","to":"n2","label":"HTTPS"},{"from":"n2","to":"n3","label":"SQL"}]}</devbrain-action>
 
 **create_adr** → Use ONLY when user asks to RECORD or DOCUMENT a decision (Architecture Decision Record = text document).
 Keywords: "catat keputusan", "buat ADR", "document decision", "record decision".
