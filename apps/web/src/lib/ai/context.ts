@@ -30,7 +30,7 @@ You help ${userName} with questions about their projects, notes, tasks, architec
 Today is ${today}. Answer in the same language the user writes in (Indonesian or English).
 Be concise, technical, and practical. Format code with backticks.`;
 
-  // Global view — load all projects + all notes across all projects
+  // Global view — load all projects + all notes
   if (!projectSlug) {
     const [projects, allNotes] = await Promise.all([
       getAllProjects(userId),
@@ -54,7 +54,6 @@ Be concise, technical, and practical. Format code with backticks.`;
       ? "No projects yet."
       : projects.map((p) => `- ${p.name}${p.description ? ` — ${p.description}` : ""} (slug: ${p.slug})`).join("\n");
 
-    // Group notes by project for readability
     const notesByProject = new Map<string, typeof allNotes>();
     for (const n of allNotes) {
       const key = n.projectName ?? "(no project)";
@@ -84,9 +83,7 @@ Be concise, technical, and practical. Format code with backticks.`;
   }
 
   const project = await getProjectBySlug(projectSlug, userId);
-  if (!project) {
-    return { systemPrompt: base, entities: [] };
-  }
+  if (!project) return { systemPrompt: base, entities: [] };
 
   const [notes, tasks, adrs] = await Promise.all([
     getNotes({ projectId: project.id, authorId: userId }),
@@ -96,44 +93,28 @@ Be concise, technical, and practical. Format code with backticks.`;
 
   const entities: ContextEntity[] = [
     { type: "project", label: project.name, href: `/projects/${project.slug}` },
-    ...notes.map((n) => ({
-      type: "note" as const,
-      label: n.title,
-      href: `/notes/${n.slug}`,
-    })),
-    ...tasks.map((t) => ({
-      type: "task" as const,
-      label: t.title,
-      href: `/projects/${project.slug}/tasks`,
-    })),
-    ...adrs.map((a) => ({
-      type: "adr" as const,
-      label: `ADR-${a.number}: ${a.title}`,
-      href: `/projects/${project.slug}/adr/${a.id}`,
-    })),
+    ...notes.map((n) => ({ type: "note" as const, label: n.title, href: `/notes/${n.slug}` })),
+    ...tasks.map((t) => ({ type: "task" as const, label: t.title, href: `/projects/${project.slug}/tasks` })),
+    ...adrs.map((a) => ({ type: "adr" as const, label: `ADR-${a.number}: ${a.title}`, href: `/projects/${project.slug}/adr/${a.id}` })),
   ];
 
   const notesSection = notes.length === 0
     ? "No notes yet."
     : notes.slice(0, 10).map((n) => {
-        const contentPreview = n.content
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 500);
-        return `### Note: ${n.title}\nSlug: ${n.slug}\nTags: ${n.tags.join(", ") || "none"}\n${contentPreview}`;
+        const preview = n.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
+        return `### Note: ${n.title}\nSlug: ${n.slug} | Tags: ${n.tags.join(", ") || "none"}\n${preview}`;
       }).join("\n\n");
 
-  const openTasks = tasks.filter((t) => t.status !== "done" && t.status !== "archived");
-  const tasksSection = openTasks.length === 0
-    ? "No open tasks."
-    : openTasks.map((t) =>
-        `- [${t.status.toUpperCase()}] ${t.title} (priority: ${t.priority}${t.dueDate ? `, due: ${t.dueDate}` : ""})`
+  const allTasks = tasks.filter((t) => t.status !== "archived");
+  const tasksSection = allTasks.length === 0
+    ? "No tasks."
+    : allTasks.map((t) =>
+        `- [${t.status.toUpperCase()}] ${t.title} (id: ${t.id}, priority: ${t.priority}${t.dueDate ? `, due: ${t.dueDate}` : ""})`
       ).join("\n");
 
   const adrsSection = adrs.length === 0
     ? "No ADRs yet."
-    : adrs.map((a) => `- ADR-${a.number}: ${a.title} [${a.status}]`).join("\n");
+    : adrs.map((a) => `- ADR-${a.number}: ${a.title} [${a.status}] (id: ${a.id})`).join("\n");
 
   return {
     systemPrompt: `${base}
@@ -141,10 +122,10 @@ Be concise, technical, and practical. Format code with backticks.`;
 ## Current Project Context: ${project.name}
 ${project.description ? `Description: ${project.description}` : ""}
 
-## Notes (${notes.length} total, showing last 10 with content):
+## Notes (${notes.length} total):
 ${notesSection}
 
-## Open Tasks (${openTasks.length}/${tasks.length} open):
+## Tasks (${allTasks.length} total):
 ${tasksSection}
 
 ## Architecture Decision Records:
@@ -156,17 +137,24 @@ ${adrsSection}${actionInstructions([project.slug])}`,
 function actionInstructions(slugs: string[]): string {
   const slugList = slugs.length > 0 ? slugs.join(", ") : "(none available)";
   return `
-## Action Capabilities
-When user explicitly asks you to CREATE, ADD, or MAKE something, emit action tags at the END of your response.
-Use natural language explanation first, then the action tags.
 
-Supported actions:
+## Action Capabilities
+When user explicitly asks you to CREATE, UPDATE, DELETE, or MANAGE something, emit action tags at the END of your response.
+Explain what you're doing first, then emit the action tags.
+
+### Create actions:
 <devbrain-action>{"type":"create_task","title":"Task title","projectSlug":"slug","priority":"low|medium|high|urgent","description":"optional"}</devbrain-action>
-<devbrain-action>{"type":"create_note","title":"Note title","projectSlug":"slug","content":"# Markdown content here\\n\\nFull research content..."}</devbrain-action>
+<devbrain-action>{"type":"update_task_status","taskId":"uuid-from-context","status":"todo|in_progress|in_review|done","projectSlug":"slug"}</devbrain-action>
+<devbrain-action>{"type":"delete_task","taskId":"uuid-from-context","projectSlug":"slug"}</devbrain-action>
+<devbrain-action>{"type":"create_note","title":"Note title","projectSlug":"slug","content":"# Markdown content\\n\\nFull content in markdown..."}</devbrain-action>
 <devbrain-action>{"type":"create_whiteboard","title":"Diagram title","projectSlug":"slug"}</devbrain-action>
+<devbrain-action>{"type":"create_project","name":"Project name","description":"optional","color":"violet|blue|green|red|orange|yellow|pink|cyan"}</devbrain-action>
+<devbrain-action>{"type":"create_adr","title":"ADR title","projectSlug":"slug","context":"problem context","decision":"decision made","consequences":"trade-offs","status":"proposed|accepted"}</devbrain-action>
+<devbrain-action>{"type":"create_meeting","title":"Meeting title","projectSlug":"slug","description":"optional","startAt":"2024-01-15T09:00:00Z","endAt":"2024-01-15T10:00:00Z","location":"optional","notes":"optional meeting notes"}</devbrain-action>
 
 Available project slugs: ${slugList}
-Only emit action tags when user explicitly asks you to create/add/buatkan/tambahkan something. Never emit action tags speculatively.`;
+For update_task_status and delete_task: use the task id from the Tasks section above.
+Only emit action tags when user explicitly asks. Never speculate.`;
 }
 
 /** Match entities whose label appears in responseText (case-insensitive). */
@@ -184,5 +172,5 @@ export function matchEntities(responseText: string, entities: ContextEntity[]): 
     }
   }
 
-  return results.slice(0, 8); // cap at 8 suggestions
+  return results.slice(0, 8);
 }

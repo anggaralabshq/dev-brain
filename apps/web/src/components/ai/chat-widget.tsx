@@ -6,6 +6,7 @@ import {
   MessageCircle, X, Send, Trash2, ChevronDown,
   FileText, FolderOpen, CheckSquare, BookOpen, ExternalLink,
   PlusCircle, Loader2, CheckCircle2, AlertCircle,
+  PenSquare, Calendar, Minus,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -400,15 +401,37 @@ export function AIChatWidget() {
 
 const ACTION_TYPE_LABELS: Record<AIAction["type"], string> = {
   create_task: "Create Task",
+  update_task_status: "Update Task",
+  delete_task: "Delete Task",
   create_note: "Create Note",
   create_whiteboard: "Create Whiteboard",
+  create_project: "Create Project",
+  create_adr: "Create ADR",
+  create_meeting: "Schedule Meeting",
 };
 
 const ACTION_TYPE_ICONS: Record<AIAction["type"], React.ElementType> = {
   create_task: CheckSquare,
+  update_task_status: PenSquare,
+  delete_task: Minus,
   create_note: FileText,
   create_whiteboard: BookOpen,
+  create_project: FolderOpen,
+  create_adr: BookOpen,
+  create_meeting: Calendar,
 };
+
+function actionDisplayTitle(action: AIAction): string {
+  if (action.type === "create_project") return action.name;
+  if (action.type === "update_task_status") return `Mark as ${action.status}`;
+  if (action.type === "delete_task") return "Delete task";
+  return action.title;
+}
+
+function actionDisplaySlug(action: AIAction): string | null {
+  if (action.type === "create_project") return null;
+  return action.projectSlug;
+}
 
 function ActionCard({
   action,
@@ -421,6 +444,8 @@ function ActionCard({
 }) {
   const Icon = ACTION_TYPE_ICONS[action.type];
   const label = ACTION_TYPE_LABELS[action.type];
+  const displayTitle = actionDisplayTitle(action);
+  const displaySlug = actionDisplaySlug(action);
 
   return (
     <div className="rounded-lg border bg-background px-3 py-2.5 text-sm shadow-sm">
@@ -429,9 +454,11 @@ function ActionCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-medium text-xs text-primary">{label}</span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{action.projectSlug}</span>
+            {displaySlug && (
+              <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{displaySlug}</span>
+            )}
           </div>
-          <p className="mt-0.5 truncate text-xs text-foreground">{action.title}</p>
+          <p className="mt-0.5 truncate text-xs text-foreground">{displayTitle}</p>
         </div>
       </div>
 

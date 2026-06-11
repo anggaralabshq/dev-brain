@@ -7,6 +7,10 @@ import Image from "@tiptap/extension-image";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { createLowlight, common } from "lowlight";
 import { Markdown } from "tiptap-markdown";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   Bold,
@@ -170,6 +174,10 @@ export function NoteEditor({
         allowBase64: true,
         HTMLAttributes: { class: "rounded-md max-w-full" },
       }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Markdown.configure({
         html: true,
         tightLists: true,

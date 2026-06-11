@@ -18,9 +18,7 @@ function parseActions(text: string): { stripped: string; actions: AIAction[] } {
   const stripped = text.replace(ACTION_TAG_RE, (_, json) => {
     try {
       const parsed = JSON.parse(json.trim()) as AIAction;
-      if (parsed.type && parsed.title && parsed.projectSlug) {
-        actions.push(parsed);
-      }
+      if (parsed.type) actions.push(parsed);
     } catch { /* skip malformed */ }
     return "";
   }).trim();
