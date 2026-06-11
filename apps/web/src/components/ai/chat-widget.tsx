@@ -6,6 +6,8 @@ import {
   MessageCircle, X, Send, Trash2, ChevronDown,
   FileText, FolderOpen, CheckSquare, BookOpen, ExternalLink,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import type { ContextEntity } from "@/lib/ai/context";
 
@@ -345,24 +347,25 @@ function MessageContent({ content, pending }: { content: string; pending?: boole
     );
   }
 
-  const parts = content.split(/(```[\s\S]*?```|`[^`]+`)/g);
   return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("```") && part.endsWith("```")) {
-          const inner = part.slice(3, -3).replace(/^[a-z]+\n/, "");
-          return (
-            <pre key={i} className="mt-1 overflow-x-auto rounded bg-background/50 p-2 text-xs font-mono">
-              {inner}
-            </pre>
-          );
-        }
-        if (part.startsWith("`") && part.endsWith("`")) {
-          return <code key={i} className="rounded bg-background/50 px-1 font-mono text-xs">{part.slice(1, -1)}</code>;
-        }
-        return <span key={i} style={{ whiteSpace: "pre-wrap" }}>{part}</span>;
-      })}
-      {pending && content && <span className="ml-0.5 animate-pulse">▌</span>}
-    </>
+    <div className="prose prose-sm dark:prose-invert max-w-none break-words
+      prose-p:my-1 prose-p:leading-relaxed
+      prose-headings:mt-3 prose-headings:mb-1 prose-headings:font-semibold
+      prose-h1:text-base prose-h2:text-sm prose-h3:text-sm
+      prose-ul:my-1 prose-ul:pl-4 prose-ol:my-1 prose-ol:pl-4
+      prose-li:my-0.5
+      prose-code:rounded prose-code:bg-background/60 prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:font-mono prose-code:before:content-none prose-code:after:content-none
+      prose-pre:bg-background/60 prose-pre:text-xs prose-pre:p-2 prose-pre:rounded prose-pre:overflow-x-auto prose-pre:my-1
+      prose-blockquote:border-l-2 prose-blockquote:border-muted-foreground/30 prose-blockquote:pl-3 prose-blockquote:text-muted-foreground prose-blockquote:my-1
+      prose-strong:font-semibold
+      prose-a:text-primary prose-a:underline
+      prose-hr:my-2 prose-hr:border-muted-foreground/20
+      prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1
+    ">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {content}
+      </ReactMarkdown>
+      {pending && content && <span className="animate-pulse">▌</span>}
+    </div>
   );
 }
