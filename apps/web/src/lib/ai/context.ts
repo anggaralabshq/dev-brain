@@ -142,25 +142,41 @@ function actionInstructions(slugs: string[]): string {
 When user explicitly asks you to CREATE, UPDATE, DELETE, or MANAGE something, emit action tags at the END of your response.
 Explain what you're doing first, then emit the action tags.
 
-### Create actions:
-<devbrain-action>{"type":"create_task","title":"Task title","projectSlug":"slug","priority":"low|medium|high|urgent","description":"optional"}</devbrain-action>
-<devbrain-action>{"type":"update_task_status","taskId":"uuid-from-context","status":"todo|in_progress|in_review|done","projectSlug":"slug"}</devbrain-action>
-<devbrain-action>{"type":"delete_task","taskId":"uuid-from-context","projectSlug":"slug"}</devbrain-action>
-<devbrain-action>{"type":"create_note","title":"Note title","projectSlug":"slug","content":"# Markdown content\\n\\nFull content in markdown..."}</devbrain-action>
-<devbrain-action>{"type":"create_whiteboard","title":"Diagram title","projectSlug":"slug"}</devbrain-action>
-<devbrain-action>{"type":"create_project","name":"Project name","description":"optional","color":"violet|blue|green|red|orange|yellow|pink|cyan"}</devbrain-action>
-<devbrain-action>{"type":"create_adr","title":"ADR title","projectSlug":"slug","context":"problem context","decision":"decision made","consequences":"trade-offs","status":"proposed|accepted"}</devbrain-action>
-<devbrain-action>{"type":"create_meeting","title":"Meeting title","projectSlug":"slug","description":"optional","startAt":"2024-01-15T09:00:00Z","endAt":"2024-01-15T10:00:00Z","location":"optional","notes":"optional meeting notes"}</devbrain-action>
-<devbrain-action>{"type":"create_diagram","title":"Diagram title","projectSlug":"slug","nodes":[{"id":"n1","label":"Service A","color":"blue","shape":"rectangle"},{"id":"n2","label":"Database","color":"green","shape":"ellipse"}],"edges":[{"from":"n1","to":"n2","label":"SQL"}]}</devbrain-action>
+### Action type guide — pick EXACTLY the right one:
 
+**create_diagram** → Use when user asks to DRAW, VISUALIZE, or MAP something as a diagram/graph with boxes and arrows.
+Keywords: "buatkan diagram", "gambarkan arsitektur", "visualisasikan", "draw", "diagram", "buat graph", "architecture diagram", "flow diagram", "sequence diagram".
 Node colors: blue, violet, green, red, orange, yellow, grey, cyan, purple, pink
-Node shapes: rectangle (default), ellipse, diamond, cylinder, hexagon, circle
-Edges can have an optional label.
-For create_diagram: design a proper architecture based on the use case. Include all relevant services, databases, queues, clients, and their connections.
+Node shapes: rectangle (default), ellipse, diamond, hexagon, circle
+<devbrain-action>{"type":"create_diagram","title":"Diagram title","projectSlug":"slug","nodes":[{"id":"n1","label":"Client","color":"blue","shape":"rectangle"},{"id":"n2","label":"API","color":"violet"},{"id":"n3","label":"Database","color":"green","shape":"ellipse"}],"edges":[{"from":"n1","to":"n2","label":"HTTPS"},{"from":"n2","to":"n3","label":"SQL"}]}</devbrain-action>
+
+**create_adr** → Use ONLY when user asks to RECORD or DOCUMENT a decision (Architecture Decision Record = text document).
+Keywords: "catat keputusan", "buat ADR", "document decision", "record decision".
+<devbrain-action>{"type":"create_adr","title":"ADR title","projectSlug":"slug","context":"problem context","decision":"decision made","consequences":"trade-offs","status":"proposed|accepted"}</devbrain-action>
+
+**create_task** → Task in the kanban board.
+<devbrain-action>{"type":"create_task","title":"Task title","projectSlug":"slug","priority":"low|medium|high|urgent","description":"optional"}</devbrain-action>
+
+**update_task_status** → Change task status using id from Tasks section.
+<devbrain-action>{"type":"update_task_status","taskId":"uuid-from-context","status":"todo|in_progress|in_review|done","projectSlug":"slug"}</devbrain-action>
+
+**delete_task** → Delete task using id from Tasks section.
+<devbrain-action>{"type":"delete_task","taskId":"uuid-from-context","projectSlug":"slug"}</devbrain-action>
+
+**create_note** → Rich text note with full markdown content.
+<devbrain-action>{"type":"create_note","title":"Note title","projectSlug":"slug","content":"# Heading\\n\\nContent in markdown..."}</devbrain-action>
+
+**create_whiteboard** → Blank empty whiteboard (no content).
+<devbrain-action>{"type":"create_whiteboard","title":"Whiteboard title","projectSlug":"slug"}</devbrain-action>
+
+**create_project** → New project (no projectSlug needed).
+<devbrain-action>{"type":"create_project","name":"Project name","description":"optional","color":"violet|blue|green|red|orange|yellow|pink|cyan"}</devbrain-action>
+
+**create_meeting** → Schedule a meeting.
+<devbrain-action>{"type":"create_meeting","title":"Meeting title","projectSlug":"slug","startAt":"2024-01-15T09:00:00Z","endAt":"2024-01-15T10:00:00Z","location":"optional","notes":"optional"}</devbrain-action>
 
 Available project slugs: ${slugList}
-For update_task_status and delete_task: use the task id from the Tasks section above.
-Only emit action tags when user explicitly asks. Never speculate.`;
+Only emit action tags when user explicitly asks. Never speculate. ONE action per intent.`;
 }
 
 /** Match entities whose label appears in responseText (case-insensitive). */
