@@ -6,7 +6,7 @@ import {
   MessageCircle, X, Send, Trash2, ChevronDown,
   FileText, FolderOpen, CheckSquare, BookOpen, ExternalLink,
   PlusCircle, Loader2, CheckCircle2, AlertCircle,
-  PenSquare, Calendar, Minus,
+  PenSquare, Calendar, Minus, Network,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -405,6 +405,7 @@ const ACTION_TYPE_LABELS: Record<AIAction["type"], string> = {
   delete_task: "Delete Task",
   create_note: "Create Note",
   create_whiteboard: "Create Whiteboard",
+  create_diagram: "Generate Diagram",
   create_project: "Create Project",
   create_adr: "Create ADR",
   create_meeting: "Schedule Meeting",
@@ -416,6 +417,7 @@ const ACTION_TYPE_ICONS: Record<AIAction["type"], React.ElementType> = {
   delete_task: Minus,
   create_note: FileText,
   create_whiteboard: BookOpen,
+  create_diagram: Network,
   create_project: FolderOpen,
   create_adr: BookOpen,
   create_meeting: Calendar,
@@ -425,6 +427,7 @@ function actionDisplayTitle(action: AIAction): string {
   if (action.type === "create_project") return action.name;
   if (action.type === "update_task_status") return `Mark as ${action.status}`;
   if (action.type === "delete_task") return "Delete task";
+  if (action.type === "create_diagram") return `${action.title} (${action.nodes.length} nodes, ${action.edges.length} edges)`;
   return action.title;
 }
 

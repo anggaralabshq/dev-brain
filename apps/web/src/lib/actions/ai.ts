@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/ai-chats";
 import { marked } from "marked";
 import type { AIAction, AIActionResult } from "@/lib/ai/types";
+import { diagramSpecToSnapshot } from "@/lib/ai/diagram";
 
 function markdownToHtml(md: string): string {
   return marked.parse(md, { async: false, gfm: true }) as string;
@@ -134,6 +135,23 @@ export async function executeAIAction(action: AIAction): Promise<AIActionResult>
       }).returning();
       revalidatePath(`/projects/${action.projectSlug}/meetings`);
       return { ok: true, href: `/projects/${action.projectSlug}/meetings`, label: `Meeting "${created.title}" scheduled` };
+    }
+
+    case "create_diagram": {
+      const snapshot = diagramSpecToSnapshot({ nodes: action.nodes, edges: action.edges });
+      const [created] = await db.insert(whiteboards).values({
+        projectId: project.id,
+        title: action.title,
+        description: "",
+        data: snapshot,
+        authorId: user.id,
+      }).returning();
+      revalidatePath(`/projects/${action.projectSlug}/architecture`);
+      return {
+        ok: true,
+        href: `/projects/${action.projectSlug}/architecture/${created.id}`,
+        label: `Diagram "${action.title}" created`,
+      };
     }
   }
 }

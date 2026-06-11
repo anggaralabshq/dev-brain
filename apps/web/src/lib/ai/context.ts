@@ -151,6 +151,12 @@ Explain what you're doing first, then emit the action tags.
 <devbrain-action>{"type":"create_project","name":"Project name","description":"optional","color":"violet|blue|green|red|orange|yellow|pink|cyan"}</devbrain-action>
 <devbrain-action>{"type":"create_adr","title":"ADR title","projectSlug":"slug","context":"problem context","decision":"decision made","consequences":"trade-offs","status":"proposed|accepted"}</devbrain-action>
 <devbrain-action>{"type":"create_meeting","title":"Meeting title","projectSlug":"slug","description":"optional","startAt":"2024-01-15T09:00:00Z","endAt":"2024-01-15T10:00:00Z","location":"optional","notes":"optional meeting notes"}</devbrain-action>
+<devbrain-action>{"type":"create_diagram","title":"Diagram title","projectSlug":"slug","nodes":[{"id":"n1","label":"Service A","color":"blue","shape":"rectangle"},{"id":"n2","label":"Database","color":"green","shape":"ellipse"}],"edges":[{"from":"n1","to":"n2","label":"SQL"}]}</devbrain-action>
+
+Node colors: blue, violet, green, red, orange, yellow, grey, cyan, purple, pink
+Node shapes: rectangle (default), ellipse, diamond, cylinder, hexagon, circle
+Edges can have an optional label.
+For create_diagram: design a proper architecture based on the use case. Include all relevant services, databases, queues, clients, and their connections.
 
 Available project slugs: ${slugList}
 For update_task_status and delete_task: use the task id from the Tasks section above.
