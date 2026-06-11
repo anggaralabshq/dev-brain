@@ -107,7 +107,7 @@ export function diagramSpecToSnapshot(opts: {
   const positions = layeredLayout(nodes, edges);
 
   const records: unknown[] = [
-    { id: "document:document", typeName: "document", gridSize: 10, name: "", meta: {}, version: 0 },
+    { id: "document:document", typeName: "document", gridSize: 10, name: "", meta: {} },
     { id: pageId, typeName: "page", name: "Page 1", index: "a1", meta: {} },
     { id: `camera:${pageId}`, typeName: "camera", x: -80, y: -80, z: 0.75, meta: {} },
     {
@@ -176,17 +176,39 @@ export function diagramSpecToSnapshot(opts: {
     });
   });
 
+  // Schema sequences must exactly match the running tldraw version (extracted from real DB snapshot)
   return {
     schema: {
       schemaVersion: 2,
       sequences: {
-        "com.tldraw.page": 1, "com.tldraw.document": 1,
-        "com.tldraw.camera": 1, "com.tldraw.pointer": 1,
-        "com.tldraw.instance": 1, "com.tldraw.instance_page_state": 1,
-        "com.tldraw.shape": nodes.length + edges.length,
-        "com.tldraw.shape.geo": nodes.length,
-        "com.tldraw.shape.arrow": edges.length,
-        "com.tldraw.binding.arrow": edges.length * 2,
+        "com.tldraw.page": 1,
+        "com.tldraw.user": 1,
+        "com.tldraw.asset": 1,
+        "com.tldraw.shape": 4,
+        "com.tldraw.store": 5,
+        "com.tldraw.camera": 1,
+        "com.tldraw.pointer": 1,
+        "com.tldraw.document": 2,
+        "com.tldraw.instance": 26,
+        "com.tldraw.shape.geo": 11,
+        "com.tldraw.shape.draw": 4,
+        "com.tldraw.shape.line": 5,
+        "com.tldraw.shape.note": 12,
+        "com.tldraw.shape.text": 4,
+        "com.tldraw.asset.image": 6,
+        "com.tldraw.asset.video": 5,
+        "com.tldraw.shape.arrow": 8,
+        "com.tldraw.shape.embed": 4,
+        "com.tldraw.shape.frame": 1,
+        "com.tldraw.shape.group": 0,
+        "com.tldraw.shape.image": 5,
+        "com.tldraw.shape.video": 4,
+        "com.tldraw.binding.arrow": 1,
+        "com.tldraw.asset.bookmark": 2,
+        "com.tldraw.shape.bookmark": 2,
+        "com.tldraw.shape.highlight": 3,
+        "com.tldraw.instance_presence": 6,
+        "com.tldraw.instance_page_state": 5,
       },
     },
     records,
