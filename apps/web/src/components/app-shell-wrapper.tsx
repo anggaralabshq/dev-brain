@@ -13,6 +13,7 @@ import { PomodoroProvider } from "@/contexts/pomodoro-context";
 import { FocusTimer } from "@/components/pomodoro/focus-timer";
 import { SessionCompleteModal } from "@/components/pomodoro/session-complete-modal";
 import { CommandPalette } from "@/components/command-palette";
+import { AIChatWidget } from "@/components/ai/chat-widget";
 
 const NO_SHELL_PATHS = new Set<string>([
   "/login",
@@ -42,6 +43,7 @@ export function AppShellWrapper({
       <FocusTimer />
       <SessionCompleteModal />
       {user && <CommandPalette />}
+      {user && <AIChatWidget />}
     </PomodoroProvider>
   );
 }
