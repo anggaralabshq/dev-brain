@@ -180,3 +180,69 @@ export async function updateNote(input: UpdateNoteInput) {
 export async function deleteNote(id: string) {
   await db.delete(notes).where(eq(notes.id, id));
 }
+
+export type NoteSearchResult = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  projectName: string | null;
+  projectSlug: string | null;
+  updatedAt: Date;
+};
+
+export async function searchNotes(opts: {
+  query: string;
+  authorId: string;
+  limit?: number;
+}): Promise<NoteSearchResult[]> {
+  const { query, authorId, limit = 10 } = opts;
+  const q = query.trim();
+  if (!q) return [];
+
+  const rows = await db
+    .select({
+      id: notes.id,
+      slug: notes.slug,
+      title: notes.title,
+      excerpt: notes.excerpt,
+      projectName: projects.name,
+      projectSlug: projects.slug,
+      updatedAt: notes.updatedAt,
+    })
+    .from(notes)
+    .leftJoin(projects, eq(projects.id, notes.projectId))
+    .where(
+      and(
+        eq(notes.authorId, authorId),
+        eq(notes.archived, false),
+        sql`to_tsvector('english', coalesce(${notes.title}, '') || ' ' || coalesce(${notes.excerpt}, '')) @@ websearch_to_tsquery('english', ${q})`
+      )
+    )
+    .orderBy(desc(notes.updatedAt))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    ...r,
+    projectName: r.projectName ?? null,
+    projectSlug: r.projectSlug ?? null,
+  }));
+}
+
+export async function refreshAllExcerpts(authorId: string): Promise<number> {
+  const all = await db
+    .select({ id: notes.id, content: notes.content })
+    .from(notes)
+    .where(eq(notes.authorId, authorId));
+
+  let count = 0;
+  for (const note of all) {
+    const excerpt = makeExcerpt(note.content);
+    await db
+      .update(notes)
+      .set({ excerpt })
+      .where(eq(notes.id, note.id));
+    count++;
+  }
+  return count;
+}

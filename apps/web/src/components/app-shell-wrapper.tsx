@@ -12,6 +12,7 @@ import type { CurrentUser } from "@/lib/auth/current-user";
 import { PomodoroProvider } from "@/contexts/pomodoro-context";
 import { FocusTimer } from "@/components/pomodoro/focus-timer";
 import { SessionCompleteModal } from "@/components/pomodoro/session-complete-modal";
+import { CommandPalette } from "@/components/command-palette";
 
 const NO_SHELL_PATHS = new Set<string>([
   "/login",
@@ -40,6 +41,7 @@ export function AppShellWrapper({
       <AppShell user={user} starredProjects={starredProjects} projectCount={projectCount}>{children}</AppShell>
       <FocusTimer />
       <SessionCompleteModal />
+      {user && <CommandPalette />}
     </PomodoroProvider>
   );
 }

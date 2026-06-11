@@ -5,7 +5,7 @@ import { db } from "@devbrain/db";
 import { notes, projects } from "@devbrain/db/schema";
 import { eq } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/current-user";
-import { createNote as dbCreateNote, updateNote as dbUpdateNote, deleteNote as dbDeleteNote } from "@/lib/db/notes";
+import { createNote as dbCreateNote, updateNote as dbUpdateNote, deleteNote as dbDeleteNote, searchNotes as dbSearchNotes, refreshAllExcerpts as dbRefreshAllExcerpts } from "@/lib/db/notes";
 
 export async function createNoteAction(formData: FormData) {
   const user = await requireUser().catch(() => null);
@@ -66,6 +66,20 @@ export async function deleteNoteAction(id: string) {
   await dbDeleteNote(id);
   revalidatePath("/notes");
   return { ok: true as const };
+}
+
+export async function searchNotesAction(query: string) {
+  const user = await requireUser().catch(() => null);
+  if (!user) return [];
+  return dbSearchNotes({ query, authorId: user.id, limit: 10 });
+}
+
+export async function refreshAllExcerptsAction() {
+  const user = await requireUser().catch(() => null);
+  if (!user) return { ok: false as const, error: "Not authenticated" };
+  const count = await dbRefreshAllExcerpts(user.id);
+  revalidatePath("/notes");
+  return { ok: true as const, count };
 }
 
 export async function togglePinAction(id: string) {
