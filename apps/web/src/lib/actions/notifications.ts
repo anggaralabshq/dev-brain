@@ -2,9 +2,6 @@
 
 import { requireUser } from "@/lib/auth/current-user";
 import { getNotifications, markNotificationsSeen, getNotificationsSeenAt } from "@/lib/db/notifications";
-import type { NotificationItem } from "@/lib/db/notifications";
-
-export type { NotificationItem };
 
 export async function getNotificationsAction(): Promise<NotificationItem[]> {
   const user = await requireUser().catch(() => null);

@@ -20,7 +20,7 @@ import { signOutAction } from "@/lib/auth/actions";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { cn } from "@/lib/utils";
 import { getNotificationsAction, markNotificationsSeenAction } from "@/lib/actions/notifications";
-import type { NotificationItem } from "@/lib/actions/notifications";
+import type { NotificationItem } from "@/lib/db/notifications";
 
 function getInitials(name: string): string {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
