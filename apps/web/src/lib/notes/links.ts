@@ -26,13 +26,18 @@ export function slugifyNoteRef(text: string): string {
     .slice(0, 80);
 }
 
-/** Generate first 200 chars of plain-text excerpt from markdown. */
+/** Generate first 200 chars of plain-text excerpt from HTML or markdown. */
 export function makeExcerpt(content: string, max = 200): string {
   const plain = content
-    .replace(/```[\s\S]*?```/g, "") // code blocks
-    .replace(/[#*_~`>\-\[\]]/g, "") // md syntax
+    .replace(/<[^>]+>/g, " ")           // strip HTML tags
+    .replace(/&nbsp;/g, " ")            // common HTML entities
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
     .replace(/\[\[([^\]]+)\]\]/g, "$1") // [[link]] → text
-    .replace(/\n+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
   return plain.length > max ? plain.slice(0, max) + "…" : plain;
 }
