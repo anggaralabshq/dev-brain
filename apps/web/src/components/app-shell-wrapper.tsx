@@ -26,11 +26,13 @@ export function AppShellWrapper({
   user,
   starredProjects = [],
   projectCount = 0,
+  unreadCount = 0,
   children,
 }: {
   user: CurrentUser | null;
   starredProjects?: StarredProject[];
   projectCount?: number;
+  unreadCount?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -39,7 +41,7 @@ export function AppShellWrapper({
   }
   return (
     <PomodoroProvider>
-      <AppShell user={user} starredProjects={starredProjects} projectCount={projectCount}>{children}</AppShell>
+      <AppShell user={user} starredProjects={starredProjects} projectCount={projectCount} unreadCount={unreadCount}>{children}</AppShell>
       <FocusTimer />
       <SessionCompleteModal />
       {user && <CommandPalette />}

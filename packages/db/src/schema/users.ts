@@ -9,6 +9,7 @@ export const users = pgTable(
     image: text("image"),
     emailVerified: timestamp("email_verified", { withTimezone: true }),
     avatarUrl: text("avatar_url"),
+    notificationsSeenAt: timestamp("notifications_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
