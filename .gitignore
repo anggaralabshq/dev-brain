@@ -49,3 +49,4 @@ pnpm-debug.log*
 *.jpeg
 IMPLEMENTATION_PLAN.md
 dashboard.png
+.worktrees/
