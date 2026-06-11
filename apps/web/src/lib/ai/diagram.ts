@@ -116,6 +116,23 @@ export function diagramSpecToSnapshot(opts: {
       hoveredShapeId: null, croppingShapeId: null,
       erasingShapeIds: [], hintingShapeIds: [], selectedShapeIds: [],
     },
+    { id: "pointer:pointer", typeName: "pointer", x: 0, y: 0, lastActivityTimestamp: 0, meta: {} },
+    {
+      id: "instance:instance", typeName: "instance", meta: {},
+      currentPageId: pageId,
+      brush: null, cursor: { type: "default", rotation: 0 },
+      insets: [true, true, true, true],
+      isFocused: false, isPenMode: false, openMenus: [], scribbles: [],
+      zoomBrush: null, isChatting: false, isGridMode: false, isReadonly: false,
+      cameraState: "idle", chatMessage: "", isDebugMode: false, isFocusMode: false,
+      isToolLocked: false,
+      screenBounds: { x: 0, y: 0, w: 1200, h: 800 },
+      duplicateProps: null, followingUserId: null,
+      isChangingStyle: false, isCoarsePointer: false,
+      devicePixelRatio: 1, exportBackground: true,
+      isHoveringCanvas: false, highlightedUserIds: [],
+      stylesForNextShape: {}, opacityForNextShape: 1,
+    },
   ];
 
   // node id → shape id
