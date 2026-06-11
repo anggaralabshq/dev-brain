@@ -76,8 +76,9 @@ Be concise, technical, and practical. Format code with backticks.`;
           return `### Project: ${projectName}\n${noteLines}`;
         }).join("\n\n");
 
+    const slugs = projects.map((p) => p.slug);
     return {
-      systemPrompt: `${base}\n\nThe user is in the global view.\n\n## Projects (${projects.length} total):\n${projectList}\n\n## All Notes (${allNotes.length} total, grouped by project):\n${notesSection}`,
+      systemPrompt: `${base}\n\nThe user is in the global view.\n\n## Projects (${projects.length} total):\n${projectList}\n\n## All Notes (${allNotes.length} total, grouped by project):\n${notesSection}${actionInstructions(slugs)}`,
       entities,
     };
   }
@@ -147,9 +148,25 @@ ${notesSection}
 ${tasksSection}
 
 ## Architecture Decision Records:
-${adrsSection}`,
+${adrsSection}${actionInstructions([project.slug])}`,
     entities,
   };
+}
+
+function actionInstructions(slugs: string[]): string {
+  const slugList = slugs.length > 0 ? slugs.join(", ") : "(none available)";
+  return `
+## Action Capabilities
+When user explicitly asks you to CREATE, ADD, or MAKE something, emit action tags at the END of your response.
+Use natural language explanation first, then the action tags.
+
+Supported actions:
+<devbrain-action>{"type":"create_task","title":"Task title","projectSlug":"slug","priority":"low|medium|high|urgent","description":"optional"}</devbrain-action>
+<devbrain-action>{"type":"create_note","title":"Note title","projectSlug":"slug","content":"# Markdown content here\\n\\nFull research content..."}</devbrain-action>
+<devbrain-action>{"type":"create_whiteboard","title":"Diagram title","projectSlug":"slug"}</devbrain-action>
+
+Available project slugs: ${slugList}
+Only emit action tags when user explicitly asks you to create/add/buatkan/tambahkan something. Never emit action tags speculatively.`;
 }
 
 /** Match entities whose label appears in responseText (case-insensitive). */

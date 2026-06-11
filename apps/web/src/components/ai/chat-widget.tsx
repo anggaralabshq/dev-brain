@@ -5,19 +5,28 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   MessageCircle, X, Send, Trash2, ChevronDown,
   FileText, FolderOpen, CheckSquare, BookOpen, ExternalLink,
+  PlusCircle, Loader2, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import type { ContextEntity } from "@/lib/ai/context";
+import type { AIAction, AIActionResult } from "@/lib/ai/types";
+import { executeAIAction } from "@/lib/actions/ai";
 
 type Suggestion = ContextEntity;
+
+type PendingAction = AIAction & {
+  state: "idle" | "loading" | "done" | "error";
+  result?: AIActionResult;
+};
 
 type Message = {
   role: "user" | "assistant";
   content: string;
   pending?: boolean;
   suggestions?: Suggestion[];
+  pendingActions?: PendingAction[];
 };
 
 const ENTITY_ICONS: Record<Suggestion["type"], React.ElementType> = {
@@ -64,6 +73,27 @@ export function AIChatWidget() {
   const navigate = (href: string) => {
     setOpen(false);
     router.push(href);
+  };
+
+  const runAction = async (msgIdx: number, actionIdx: number) => {
+    setMessages((prev) => {
+      const copy = [...prev];
+      const actions = [...(copy[msgIdx].pendingActions ?? [])];
+      actions[actionIdx] = { ...actions[actionIdx], state: "loading" };
+      copy[msgIdx] = { ...copy[msgIdx], pendingActions: actions };
+      return copy;
+    });
+
+    const action = messages[msgIdx].pendingActions![actionIdx];
+    const result = await executeAIAction(action);
+
+    setMessages((prev) => {
+      const copy = [...prev];
+      const actions = [...(copy[msgIdx].pendingActions ?? [])];
+      actions[actionIdx] = { ...actions[actionIdx], state: result.ok ? "done" : "error", result };
+      copy[msgIdx] = { ...copy[msgIdx], pendingActions: actions };
+      return copy;
+    });
   };
 
   const sendMessage = useCallback(async () => {
@@ -118,7 +148,9 @@ export function AIChatWidget() {
             const parsed = JSON.parse(data) as {
               chatId?: string;
               delta?: string;
+              finalContent?: string;
               suggestions?: Suggestion[];
+              pendingActions?: AIAction[];
             };
 
             if (parsed.chatId && !resolvedChatId) {
@@ -135,13 +167,29 @@ export function AIChatWidget() {
               });
             }
 
+            // Server stripped action tags — replace with clean content
+            if (parsed.finalContent !== undefined) {
+              accum = parsed.finalContent;
+              setMessages((prev) => {
+                const copy = [...prev];
+                copy[copy.length - 1] = { ...copy[copy.length - 1], content: accum };
+                return copy;
+              });
+            }
+
             if (parsed.suggestions) {
               setMessages((prev) => {
                 const copy = [...prev];
-                copy[copy.length - 1] = {
-                  ...copy[copy.length - 1],
-                  suggestions: parsed.suggestions,
-                };
+                copy[copy.length - 1] = { ...copy[copy.length - 1], suggestions: parsed.suggestions };
+                return copy;
+              });
+            }
+
+            if (parsed.pendingActions) {
+              const actions: PendingAction[] = parsed.pendingActions.map((a) => ({ ...a, state: "idle" }));
+              setMessages((prev) => {
+                const copy = [...prev];
+                copy[copy.length - 1] = { ...copy[copy.length - 1], pendingActions: actions };
                 return copy;
               });
             }
@@ -289,6 +337,20 @@ export function AIChatWidget() {
                     })}
                   </div>
                 )}
+
+                {/* Action confirmation cards */}
+                {msg.pendingActions && msg.pendingActions.length > 0 && (
+                  <div className="mt-2 flex max-w-[88%] flex-col gap-2">
+                    {msg.pendingActions.map((action, j) => (
+                      <ActionCard
+                        key={j}
+                        action={action}
+                        onExecute={() => runAction(i, j)}
+                        onNavigate={navigate}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -333,6 +395,86 @@ export function AIChatWidget() {
         </div>
       </div>
     </>
+  );
+}
+
+const ACTION_TYPE_LABELS: Record<AIAction["type"], string> = {
+  create_task: "Create Task",
+  create_note: "Create Note",
+  create_whiteboard: "Create Whiteboard",
+};
+
+const ACTION_TYPE_ICONS: Record<AIAction["type"], React.ElementType> = {
+  create_task: CheckSquare,
+  create_note: FileText,
+  create_whiteboard: BookOpen,
+};
+
+function ActionCard({
+  action,
+  onExecute,
+  onNavigate,
+}: {
+  action: PendingAction;
+  onExecute: () => void;
+  onNavigate: (href: string) => void;
+}) {
+  const Icon = ACTION_TYPE_ICONS[action.type];
+  const label = ACTION_TYPE_LABELS[action.type];
+
+  return (
+    <div className="rounded-lg border bg-background px-3 py-2.5 text-sm shadow-sm">
+      <div className="flex items-start gap-2">
+        <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-medium text-xs text-primary">{label}</span>
+            <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{action.projectSlug}</span>
+          </div>
+          <p className="mt-0.5 truncate text-xs text-foreground">{action.title}</p>
+        </div>
+      </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        {action.state === "idle" && (
+          <button
+            onClick={onExecute}
+            className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <PlusCircle className="h-3 w-3" />
+            Execute
+          </button>
+        )}
+        {action.state === "loading" && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Creating…
+          </span>
+        )}
+        {action.state === "done" && action.result?.ok && (
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-3 w-3" />
+              {action.result.label}
+            </span>
+            {action.result.href && (
+              <button
+                onClick={() => onNavigate(action.result!.href!)}
+                className="text-xs text-primary underline hover:no-underline"
+              >
+                Open →
+              </button>
+            )}
+          </div>
+        )}
+        {action.state === "error" && (
+          <span className="flex items-center gap-1 text-xs text-destructive">
+            <AlertCircle className="h-3 w-3" />
+            {action.result?.error ?? "Failed"}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

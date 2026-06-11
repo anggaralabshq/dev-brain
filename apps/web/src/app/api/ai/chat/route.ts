@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth/current-user";
 import { buildContext, matchEntities } from "@/lib/ai/context";
+import type { AIAction } from "@/lib/ai/types";
 import {
   createChat,
   getChat,
@@ -9,6 +10,22 @@ import {
   touchChat,
   updateChatTitle,
 } from "@/lib/db/ai-chats";
+
+const ACTION_TAG_RE = /<devbrain-action>([\s\S]*?)<\/devbrain-action>/g;
+
+function parseActions(text: string): { stripped: string; actions: AIAction[] } {
+  const actions: AIAction[] = [];
+  const stripped = text.replace(ACTION_TAG_RE, (_, json) => {
+    try {
+      const parsed = JSON.parse(json.trim()) as AIAction;
+      if (parsed.type && parsed.title && parsed.projectSlug) {
+        actions.push(parsed);
+      }
+    } catch { /* skip malformed */ }
+    return "";
+  }).trim();
+  return { stripped, actions };
+}
 
 const MINIMAX_API_URL = process.env.MINIMAX_API_URL ?? "https://api.minimax.io/v1/text/chatcompletion_v2";
 const MINIMAX_MODEL = process.env.MINIMAX_MODEL ?? "MiniMax-M2.7-Highspeed";
@@ -134,20 +151,37 @@ export async function POST(req: NextRequest) {
         reader.releaseLock();
       }
 
-      // Persist assistant reply
+      // Persist assistant reply (strip action tags before saving)
       if (fullContent) {
-        await saveMessage({ chatId: chatId!, role: "assistant", content: fullContent });
+        const { stripped, actions: pendingActions } = parseActions(fullContent);
+        const contentToSave = stripped || fullContent;
+
+        await saveMessage({ chatId: chatId!, role: "assistant", content: contentToSave });
         await touchChat(chatId!);
         const chat = await getChat(chatId!, user.id);
         if (chat?.title === "New Chat") {
           await updateChatTitle(chatId!, message.slice(0, 60));
         }
 
-        // Match mentioned entities and send as suggestions
-        const suggestions = matchEntities(fullContent, entities);
+        // Send stripped content as a corrective event so client shows clean text
+        if (stripped !== fullContent) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ finalContent: stripped })}\n\n`)
+          );
+        }
+
+        // Send matched entity suggestions
+        const suggestions = matchEntities(contentToSave, entities);
         if (suggestions.length > 0) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ suggestions })}\n\n`)
+          );
+        }
+
+        // Send pending actions for user confirmation
+        if (pendingActions.length > 0) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ pendingActions })}\n\n`)
           );
         }
       }
