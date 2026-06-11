@@ -30,21 +30,54 @@ You help ${userName} with questions about their projects, notes, tasks, architec
 Today is ${today}. Answer in the same language the user writes in (Indonesian or English).
 Be concise, technical, and practical. Format code with backticks.`;
 
-  // Global view — load all projects
+  // Global view — load all projects + all notes across all projects
   if (!projectSlug) {
-    const projects = await getAllProjects(userId);
-    const entities: ContextEntity[] = projects.map((p) => ({
-      type: "project" as const,
-      label: p.name,
-      href: `/projects/${p.slug}`,
-    }));
+    const [projects, allNotes] = await Promise.all([
+      getAllProjects(userId),
+      getNotes({ authorId: userId }),
+    ]);
+
+    const entities: ContextEntity[] = [
+      ...projects.map((p) => ({
+        type: "project" as const,
+        label: p.name,
+        href: `/projects/${p.slug}`,
+      })),
+      ...allNotes.map((n) => ({
+        type: "note" as const,
+        label: n.title,
+        href: `/notes/${n.slug}`,
+      })),
+    ];
 
     const projectList = projects.length === 0
       ? "No projects yet."
       : projects.map((p) => `- ${p.name}${p.description ? ` — ${p.description}` : ""} (slug: ${p.slug})`).join("\n");
 
+    // Group notes by project for readability
+    const notesByProject = new Map<string, typeof allNotes>();
+    for (const n of allNotes) {
+      const key = n.projectName ?? "(no project)";
+      if (!notesByProject.has(key)) notesByProject.set(key, []);
+      notesByProject.get(key)!.push(n);
+    }
+
+    const notesSection = allNotes.length === 0
+      ? "No notes yet."
+      : Array.from(notesByProject.entries()).map(([projectName, notes]) => {
+          const noteLines = notes.slice(0, 8).map((n) => {
+            const preview = n.content
+              .replace(/<[^>]+>/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 300);
+            return `  ### ${n.title}\n  Slug: ${n.slug} | Tags: ${n.tags.join(", ") || "none"}\n  ${preview}`;
+          }).join("\n\n");
+          return `### Project: ${projectName}\n${noteLines}`;
+        }).join("\n\n");
+
     return {
-      systemPrompt: `${base}\n\nThe user is in the global view.\n\n## Projects (${projects.length} total):\n${projectList}`,
+      systemPrompt: `${base}\n\nThe user is in the global view.\n\n## Projects (${projects.length} total):\n${projectList}\n\n## All Notes (${allNotes.length} total, grouped by project):\n${notesSection}`,
       entities,
     };
   }
