@@ -44,7 +44,7 @@ export function AIChatWidget() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const projectSlug = pathname?.match(/^\/p\/([^/]+)/)?.[1] ?? null;
+  const projectSlug = pathname?.match(/^\/projects\/([^/]+)/)?.[1] ?? null;
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
