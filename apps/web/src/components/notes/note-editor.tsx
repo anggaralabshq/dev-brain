@@ -2,10 +2,11 @@
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
-import { useEffect, useState, useTransition } from "react";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { createLowlight, common } from "lowlight";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   Bold,
   Italic,
@@ -21,22 +22,41 @@ import {
   Loader2,
   Check,
   ImageIcon,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { updateNoteAction, createNoteAction } from "@/lib/actions/notes";
 
+const lowlight = createLowlight(common);
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function Toolbar({ editor }: { editor: Editor | null }) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   if (!editor) return null;
+
   const items = [
     { icon: Heading1, label: "H1", action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), active: editor.isActive("heading", { level: 1 }) },
     { icon: Heading2, label: "H2", action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), active: editor.isActive("heading", { level: 2 }) },
     { icon: Bold, label: "Bold", action: () => editor.chain().focus().toggleBold().run(), active: editor.isActive("bold") },
     { icon: Italic, label: "Italic", action: () => editor.chain().focus().toggleItalic().run(), active: editor.isActive("italic") },
-    { icon: Code, label: "Code", action: () => editor.chain().focus().toggleCode().run(), active: editor.isActive("code") },
+    { icon: Code, label: "Inline code", action: () => editor.chain().focus().toggleCode().run(), active: editor.isActive("code") },
     { icon: List, label: "Bullet list", action: () => editor.chain().focus().toggleBulletList().run(), active: editor.isActive("bulletList") },
     { icon: ListOrdered, label: "Numbered list", action: () => editor.chain().focus().toggleOrderedList().run(), active: editor.isActive("orderedList") },
     { icon: Quote, label: "Quote", action: () => editor.chain().focus().toggleBlockquote().run(), active: editor.isActive("blockquote") },
   ];
+
   return (
     <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 px-2 py-1.5">
       {items.map((item) => (
@@ -68,13 +88,23 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       >
         <Link2 className="h-3.5 w-3.5" />
       </button>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file || file.size > MAX_IMAGE_SIZE) return;
+          const src = await readFileAsDataUrl(file);
+          editor.chain().focus().setImage({ src }).run();
+        }}
+      />
       <button
         type="button"
-        onClick={() => {
-          const url = window.prompt("Image URL");
-          if (url) editor.chain().focus().setImage({ src: url }).run();
-        }}
-        title="Insert image"
+        onClick={() => imageInputRef.current?.click()}
+        title="Insert image (or paste / drop)"
         className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         <ImageIcon className="h-3.5 w-3.5" />
@@ -128,16 +158,19 @@ export function NoteEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        codeBlock: false,
+        link: {
+          openOnClick: false,
+          HTMLAttributes: { class: "text-primary underline" },
+        },
       }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: { class: "text-primary underline" },
-      }),
+      CodeBlockLowlight.configure({ lowlight }),
       Image.configure({
+        allowBase64: true,
         HTMLAttributes: { class: "rounded-md max-w-full" },
       }),
       Placeholder.configure({
-        placeholder: 'Type your note here. Use [[note-title]] to link other notes.',
+        placeholder: "Type your note here. Markdown shortcuts work: # heading, **bold**, `code`, > quote…",
       }),
     ],
     content: initialContent ?? "",
@@ -146,6 +179,40 @@ export function NoteEditor({
         class:
           "prose prose-invert prose-sm max-w-none min-h-[400px] focus:outline-none px-4 py-3 leading-relaxed",
       },
+      handlePaste(view, event) {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        for (const item of Array.from(items)) {
+          if (!item.type.startsWith("image/")) continue;
+          const file = item.getAsFile();
+          if (!file || file.size > MAX_IMAGE_SIZE) continue;
+          void readFileAsDataUrl(file).then((src) => {
+            const node = view.state.schema.nodes.image?.create({ src });
+            if (!node) return;
+            view.dispatch(view.state.tr.replaceSelectionWith(node));
+          });
+          return true;
+        }
+        return false;
+      },
+      handleDrop(view, event, _slice, moved) {
+        if (moved) return false;
+        const files = event.dataTransfer?.files;
+        if (!files?.length) return false;
+        for (const file of Array.from(files)) {
+          if (!file.type.startsWith("image/")) continue;
+          if (file.size > MAX_IMAGE_SIZE) continue;
+          const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          if (!pos) continue;
+          void readFileAsDataUrl(file).then((src) => {
+            const node = view.state.schema.nodes.image?.create({ src });
+            if (!node) return;
+            view.dispatch(view.state.tr.insert(pos.pos, node));
+          });
+          return true;
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor }) => {
       setContent(editor.getHTML());
@@ -153,18 +220,7 @@ export function NoteEditor({
     },
   });
 
-  // Debounced auto-save
-  useEffect(() => {
-    if (status !== "unsaved") return;
-    if (!editor || !title.trim()) return;
-    const timer = setTimeout(() => {
-      handleSave();
-    }, 1500);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, content, title]);
-
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!editor) return;
     const html = editor.getHTML();
     setStatus("saving");
@@ -193,13 +249,33 @@ export function NoteEditor({
         setStatus(result.ok ? "saved" : "error");
       }
     });
-  };
+  }, [editor, title, mode, currentId, projectId]);
+
+  // Debounced auto-save
+  useEffect(() => {
+    if (status !== "unsaved") return;
+    if (!editor || !title.trim()) return;
+    const timer = setTimeout(handleSave, 1500);
+    return () => clearTimeout(timer);
+  }, [status, content, title, handleSave, editor]);
+
+  // ⌘S / Ctrl+S
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [handleSave]);
 
   void isPending;
 
   return (
     <div className="rounded-md border border-border bg-card">
-      {/* Title input */}
+      {/* Title */}
       <div className="border-b border-border px-4 py-3">
         <input
           type="text"
@@ -215,12 +291,11 @@ export function NoteEditor({
 
       <Toolbar editor={editor} />
 
-      {/* Editor */}
       <EditorContent editor={editor} />
 
-      {/* Footer with save status */}
-      <div className="flex items-center justify-between border-t border-border bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1.5">
+      {/* Footer */}
+      <div className="flex items-center justify-between border-t border-border bg-muted/20 px-4 py-2">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {status === "saving" && (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -243,10 +318,15 @@ export function NoteEditor({
             <span className="text-destructive">Save failed — try again</span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <kbd className="rounded border border-border bg-background px-1 text-[10px]">⌘S</kbd>
-          <span>to save</span>
-        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleSave}
+          disabled={status === "saving" || status === "saved"}
+        >
+          <Save className="h-3.5 w-3.5" />
+          Save
+        </Button>
       </div>
     </div>
   );

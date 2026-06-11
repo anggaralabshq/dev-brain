@@ -21,6 +21,21 @@ type SaveStatus = "saved" | "saving" | "unsaved" | "error";
 // import("tldraw") is webpack-bundled (unlike new Function trick) so the export
 // is accessible in the client bundle.
 async function loadTldrawDocument(editor: Editor, json: string): Promise<void> {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("Invalid JSON in saved diagram");
+  }
+
+  // Legacy data saved via editor.store.getSnapshot() lacks tldrawFileFormatVersion.
+  // Fall back to loadSnapshot for that format.
+  if (parsed.tldrawFileFormatVersion === undefined) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    editor.store.loadStoreSnapshot(parsed as any);
+    return;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mod = await import("tldraw") as any;
   if (typeof mod.parseAndLoadDocument !== "function") {
