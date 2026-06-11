@@ -2,13 +2,24 @@ import "server-only";
 import { getNotes } from "@/lib/db/notes";
 import { getTasksForProject } from "@/lib/db/tasks";
 import { getAdrsForProject } from "@/lib/db/adrs";
-import { getProjectBySlug } from "@/lib/db/projects";
+import { getProjectBySlug, getAllProjects } from "@/lib/db/projects";
 
-export async function buildSystemPrompt(opts: {
+export type ContextEntity = {
+  type: "note" | "project" | "task" | "adr";
+  label: string;
+  href: string;
+};
+
+export type BuildContextResult = {
+  systemPrompt: string;
+  entities: ContextEntity[];
+};
+
+export async function buildContext(opts: {
   userId: string;
   userName: string;
   projectSlug?: string | null;
-}): Promise<string> {
+}): Promise<BuildContextResult> {
   const { userId, userName, projectSlug } = opts;
   const today = new Date().toLocaleDateString("id-ID", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -19,18 +30,54 @@ You help ${userName} with questions about their projects, notes, tasks, architec
 Today is ${today}. Answer in the same language the user writes in (Indonesian or English).
 Be concise, technical, and practical. Format code with backticks.`;
 
+  // Global view — load all projects
   if (!projectSlug) {
-    return base + "\n\nThe user is in the global view (no specific project context).";
+    const projects = await getAllProjects(userId);
+    const entities: ContextEntity[] = projects.map((p) => ({
+      type: "project" as const,
+      label: p.name,
+      href: `/projects/${p.slug}`,
+    }));
+
+    const projectList = projects.length === 0
+      ? "No projects yet."
+      : projects.map((p) => `- ${p.name}${p.description ? ` — ${p.description}` : ""} (slug: ${p.slug})`).join("\n");
+
+    return {
+      systemPrompt: `${base}\n\nThe user is in the global view.\n\n## Projects (${projects.length} total):\n${projectList}`,
+      entities,
+    };
   }
 
   const project = await getProjectBySlug(projectSlug, userId);
-  if (!project) return base;
+  if (!project) {
+    return { systemPrompt: base, entities: [] };
+  }
 
   const [notes, tasks, adrs] = await Promise.all([
     getNotes({ projectId: project.id, authorId: userId }),
     getTasksForProject(project.id),
     getAdrsForProject(project.id),
   ]);
+
+  const entities: ContextEntity[] = [
+    { type: "project", label: project.name, href: `/projects/${project.slug}` },
+    ...notes.map((n) => ({
+      type: "note" as const,
+      label: n.title,
+      href: `/notes/${n.slug}`,
+    })),
+    ...tasks.map((t) => ({
+      type: "task" as const,
+      label: t.title,
+      href: `/projects/${project.slug}/tasks`,
+    })),
+    ...adrs.map((a) => ({
+      type: "adr" as const,
+      label: `ADR-${a.number}: ${a.title}`,
+      href: `/projects/${project.slug}/adr/${a.id}`,
+    })),
+  ];
 
   const notesSection = notes.length === 0
     ? "No notes yet."
@@ -40,7 +87,7 @@ Be concise, technical, and practical. Format code with backticks.`;
           .replace(/\s+/g, " ")
           .trim()
           .slice(0, 500);
-        return `### Note: ${n.title}\nTags: ${n.tags.join(", ") || "none"}\n${contentPreview}`;
+        return `### Note: ${n.title}\nSlug: ${n.slug}\nTags: ${n.tags.join(", ") || "none"}\n${contentPreview}`;
       }).join("\n\n");
 
   const openTasks = tasks.filter((t) => t.status !== "done" && t.status !== "archived");
@@ -54,7 +101,8 @@ Be concise, technical, and practical. Format code with backticks.`;
     ? "No ADRs yet."
     : adrs.map((a) => `- ADR-${a.number}: ${a.title} [${a.status}]`).join("\n");
 
-  return `${base}
+  return {
+    systemPrompt: `${base}
 
 ## Current Project Context: ${project.name}
 ${project.description ? `Description: ${project.description}` : ""}
@@ -66,5 +114,25 @@ ${notesSection}
 ${tasksSection}
 
 ## Architecture Decision Records:
-${adrsSection}`;
+${adrsSection}`,
+    entities,
+  };
+}
+
+/** Match entities whose label appears in responseText (case-insensitive). */
+export function matchEntities(responseText: string, entities: ContextEntity[]): ContextEntity[] {
+  const lower = responseText.toLowerCase();
+  const seen = new Set<string>();
+  const results: ContextEntity[] = [];
+
+  for (const entity of entities) {
+    const key = entity.href;
+    if (seen.has(key)) continue;
+    if (lower.includes(entity.label.toLowerCase())) {
+      seen.add(key);
+      results.push(entity);
+    }
+  }
+
+  return results.slice(0, 8); // cap at 8 suggestions
 }

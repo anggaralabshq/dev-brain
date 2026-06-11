@@ -1,14 +1,40 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { usePathname } from "next/navigation";
-import { MessageCircle, X, Send, Trash2, ChevronDown } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  MessageCircle, X, Send, Trash2, ChevronDown,
+  FileText, FolderOpen, CheckSquare, BookOpen, ExternalLink,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ContextEntity } from "@/lib/ai/context";
 
-type Message = { role: "user" | "assistant"; content: string; pending?: boolean };
+type Suggestion = ContextEntity;
+
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  pending?: boolean;
+  suggestions?: Suggestion[];
+};
+
+const ENTITY_ICONS: Record<Suggestion["type"], React.ElementType> = {
+  note: FileText,
+  project: FolderOpen,
+  task: CheckSquare,
+  adr: BookOpen,
+};
+
+const ENTITY_LABELS: Record<Suggestion["type"], string> = {
+  note: "Note",
+  project: "Project",
+  task: "Tasks",
+  adr: "ADR",
+};
 
 export function AIChatWidget() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -18,24 +44,25 @@ export function AIChatWidget() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Extract project slug from /p/[slug]/... paths
   const projectSlug = pathname?.match(/^\/p\/([^/]+)/)?.[1] ?? null;
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Reset chat when project changes
   useEffect(() => {
     setChatId(null);
     setMessages([]);
   }, [projectSlug]);
+
+  const navigate = (href: string) => {
+    setOpen(false);
+    router.push(href);
+  };
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
@@ -44,8 +71,6 @@ export function AIChatWidget() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setLoading(true);
-
-    // Placeholder for streaming assistant message
     setMessages((prev) => [...prev, { role: "assistant", content: "", pending: true }]);
 
     const ctrl = new AbortController();
@@ -73,6 +98,7 @@ export function AIChatWidget() {
       const decoder = new TextDecoder();
       let buffer = "";
       let accum = "";
+      let resolvedChatId = chatId;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -87,13 +113,33 @@ export function AIChatWidget() {
           const data = line.slice(6).trim();
           if (data === "[DONE]") continue;
           try {
-            const parsed = JSON.parse(data) as { chatId?: string; delta?: string };
-            if (parsed.chatId && !chatId) setChatId(parsed.chatId);
+            const parsed = JSON.parse(data) as {
+              chatId?: string;
+              delta?: string;
+              suggestions?: Suggestion[];
+            };
+
+            if (parsed.chatId && !resolvedChatId) {
+              resolvedChatId = parsed.chatId;
+              setChatId(parsed.chatId);
+            }
+
             if (parsed.delta) {
               accum += parsed.delta;
               setMessages((prev) => {
                 const copy = [...prev];
                 copy[copy.length - 1] = { role: "assistant", content: accum, pending: true };
+                return copy;
+              });
+            }
+
+            if (parsed.suggestions) {
+              setMessages((prev) => {
+                const copy = [...prev];
+                copy[copy.length - 1] = {
+                  ...copy[copy.length - 1],
+                  suggestions: parsed.suggestions,
+                };
                 return copy;
               });
             }
@@ -103,10 +149,9 @@ export function AIChatWidget() {
         }
       }
 
-      // Mark final message as complete
       setMessages((prev) => {
         const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: accum };
+        copy[copy.length - 1] = { ...copy[copy.length - 1], content: accum, pending: false };
         return copy;
       });
     } catch (err: unknown) {
@@ -138,7 +183,6 @@ export function AIChatWidget() {
 
   return (
     <>
-      {/* Floating toggle button */}
       <button
         onClick={() => setOpen((o) => !o)}
         className={cn(
@@ -151,12 +195,11 @@ export function AIChatWidget() {
         <MessageCircle className="h-5 w-5" />
       </button>
 
-      {/* Chat panel */}
       <div
         className={cn(
           "fixed bottom-6 right-6 z-50 flex flex-col rounded-xl border bg-background shadow-2xl transition-all duration-200",
-          "w-[360px] sm:w-[400px]",
-          open ? "h-[520px] opacity-100 scale-100" : "h-0 opacity-0 scale-95 pointer-events-none"
+          "w-[360px] sm:w-[420px]",
+          open ? "h-[560px] opacity-100 scale-100" : "h-0 opacity-0 scale-95 pointer-events-none"
         )}
       >
         {/* Header */}
@@ -207,16 +250,10 @@ export function AIChatWidget() {
             </div>
           ) : (
             messages.map((msg, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex",
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
+              <div key={i} className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}>
                 <div
                   className={cn(
-                    "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+                    "max-w-[88%] rounded-lg px-3 py-2 text-sm",
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-foreground"
@@ -224,6 +261,32 @@ export function AIChatWidget() {
                 >
                   <MessageContent content={msg.content} pending={msg.pending} />
                 </div>
+
+                {/* Suggestion chips */}
+                {msg.suggestions && msg.suggestions.length > 0 && (
+                  <div className="mt-2 flex max-w-[88%] flex-wrap gap-1.5">
+                    {msg.suggestions.map((s, j) => {
+                      const Icon = ENTITY_ICONS[s.type];
+                      return (
+                        <button
+                          key={j}
+                          onClick={() => navigate(s.href)}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
+                            "bg-background hover:bg-muted transition-colors",
+                            "text-foreground hover:text-primary"
+                          )}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" />
+                          <span className="max-w-[140px] truncate">{s.label}</span>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-muted-foreground">{ENTITY_LABELS[s.type]}</span>
+                          <ExternalLink className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -282,7 +345,6 @@ function MessageContent({ content, pending }: { content: string; pending?: boole
     );
   }
 
-  // Render code blocks and inline code, newlines preserved
   const parts = content.split(/(```[\s\S]*?```|`[^`]+`)/g);
   return (
     <>
