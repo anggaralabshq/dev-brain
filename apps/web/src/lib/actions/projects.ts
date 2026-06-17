@@ -38,6 +38,10 @@ export async function createProjectAction(formData: FormData) {
   const description = (formData.get("description") as string)?.trim() ?? "";
   const color = (formData.get("color") as string) || "violet";
   const template = (formData.get("template") as string) || "blank";
+  const statusRaw = (formData.get("status") as string) || "planning";
+  const status = (["active", "planning", "on-hold", "archived"].includes(statusRaw)
+    ? statusRaw
+    : "planning") as "active" | "planning" | "on-hold" | "archived";
 
   if (!name) {
     return { ok: false as const, error: "Project name is required" };
@@ -65,7 +69,7 @@ export async function createProjectAction(formData: FormData) {
       description,
       color,
       ownerId: user.id,
-      status: "planning",
+      status,
       progress: 0,
       tags: template !== "blank" ? [template] : [],
     })

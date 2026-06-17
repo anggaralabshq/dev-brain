@@ -10,7 +10,8 @@ import { Card } from "@/components/ui/card";
 import { ProjectCard } from "@/components/projects/project-card";
 import { ProjectsTable, type ProjectRow } from "@/components/projects/projects-table";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
-import { createProjectAction, deleteProjectAction, toggleStarAction } from "@/lib/actions/projects";
+import { EditProjectDialog, type EditProjectInput } from "@/components/projects/edit-project-dialog";
+import { createProjectAction, deleteProjectAction, toggleStarAction, updateProjectAction } from "@/lib/actions/projects";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +79,10 @@ export function ProjectsView({
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
   const [confirmSlug, setConfirmSlug] = useState<string | null>(null);
+  const [editSlug, setEditSlug] = useState<string | null>(null);
   const router = useRouter();
+
+  const editingProject = editSlug ? projects.find((p) => p.slug === editSlug) ?? null : null;
 
   useEffect(() => {
     setProjects(initialProjects);
@@ -128,26 +132,51 @@ export function ProjectsView({
     });
   }, [projects, activeTab, search]);
 
-  // Create project wrapper that handles the server action result
   const handleCreate = async (formData: {
     name: string;
     description: string;
     color: string;
     template: string;
+    status: "planning" | "active" | "on-hold" | "archived";
   }) => {
     const fd = new FormData();
     fd.append("name", formData.name);
     fd.append("description", formData.description);
     fd.append("color", formData.color);
     fd.append("template", formData.template);
+    fd.append("status", formData.status);
 
     const result = await createProjectAction(fd);
     if (result.ok) {
+      setActiveTab(formData.status);
       startTransition(() => {
         router.refresh();
       });
     }
     return result;
+  };
+
+  const handleEdit = async (data: EditProjectInput) => {
+    if (!editSlug) return { ok: false as const, error: "No project selected" };
+    const result = await updateProjectAction(editSlug, {
+      name: data.name,
+      description: data.description,
+      status: data.status,
+      color: data.color,
+    });
+    if (result?.ok) {
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.slug === editSlug
+            ? { ...p, name: data.name, description: data.description, status: data.status, color: data.color }
+            : p
+        )
+      );
+      setActiveTab(data.status);
+      startTransition(() => { router.refresh(); });
+      return { ok: true as const };
+    }
+    return result ?? { ok: false as const, error: "Update failed" };
   };
 
   const handleDelete = (slug: string) => {
@@ -310,6 +339,7 @@ export function ProjectsView({
               project={p}
               onToggleStar={() => handleToggleStar(p.slug)}
               onDelete={() => handleDelete(p.slug)}
+              onEdit={() => setEditSlug(p.slug)}
             />
           ))}
         </div>
@@ -336,6 +366,16 @@ export function ProjectsView({
           });
         }}
       />
+
+      {editingProject && (
+        <EditProjectDialog
+          key={editSlug}
+          open={editSlug !== null}
+          onOpenChange={(o) => { if (!o) setEditSlug(null); }}
+          project={editingProject}
+          onSave={handleEdit}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, FolderKanban, Loader2 } from "lucide-react";
+import { Loader2, FolderKanban } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,66 +34,45 @@ const colorOptions = [
   { name: "yellow", class: "bg-yellow-500" },
 ];
 
-const templates = [
-  { id: "blank", name: "Blank Project", desc: "Start from scratch" },
-  { id: "web", name: "Web Application", desc: "Frontend + Backend + DB" },
-  { id: "mobile", name: "Mobile App", desc: "iOS + Android + API" },
-  { id: "api", name: "API Service", desc: "REST + Auth + Docs" },
-  { id: "ml", name: "ML Project", desc: "Data + Model + Deploy" },
-];
-
-type CreateInput = {
+export type EditProjectInput = {
   name: string;
   description: string;
-  color: string;
-  template: string;
   status: ProjectStatus;
+  color: string;
 };
 
-type CreateResult = { ok: true; slug: string; id: string } | { ok: false; error: string };
+type EditResult = { ok: true } | { ok: false; error: string };
 
-export function CreateProjectDialog({
-  onCreate,
-  open: controlledOpen,
-  onOpenChange: controlledOnOpenChange,
+export function EditProjectDialog({
+  open,
+  onOpenChange,
+  project,
+  onSave,
 }: {
-  onCreate: (input: CreateInput) => Promise<CreateResult>;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  project: { name: string; description: string; status: ProjectStatus; color: string };
+  onSave: (data: EditProjectInput) => Promise<EditResult>;
 }) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = controlledOpen ?? internalOpen;
-  const setOpen = (o: boolean) => {
-    setInternalOpen(o);
-    controlledOnOpenChange?.(o);
-  };
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState("violet");
-  const [template, setTemplate] = useState("blank");
-  const [status, setStatus] = useState<ProjectStatus>("planning");
+  const [name, setName] = useState(project.name);
+  const [description, setDescription] = useState(project.description);
+  const [status, setStatus] = useState<ProjectStatus>(project.status);
+  const [color, setColor] = useState(project.color);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const reset = () => {
-    setName("");
-    setDescription("");
-    setColor("violet");
-    setTemplate("blank");
-    setStatus("planning");
-    setError(null);
+  const handleOpenChange = (o: boolean) => {
+    onOpenChange(o);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-
     setError(null);
     startTransition(async () => {
-      const result = await onCreate({ name, description, color, template, status });
+      const result = await onSave({ name, description, status, color });
       if (result.ok) {
-        reset();
-        setOpen(false);
+        onOpenChange(false);
       } else {
         setError(result.error);
       }
@@ -102,76 +80,41 @@ export function CreateProjectDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      {controlledOpen === undefined && (
-        <DialogTrigger asChild>
-          <Button size="sm">
-            <Plus className="h-4 w-4" />
-            New Project
-          </Button>
-        </DialogTrigger>
-      )}
-      <DialogContent className="max-w-xl">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FolderKanban className="h-4 w-4 text-primary" />
-              Create new project
+              Edit project
             </DialogTitle>
             <DialogDescription>
-              A project is the top-level container for notes, ADRs, diagrams, and tasks.
+              Update project name, description, status, or color.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 mt-4">
-            {/* Template */}
-            <div>
-              <label className="mb-2 block text-xs font-medium text-muted-foreground">
-                Template
-              </label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {templates.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTemplate(t.id)}
-                    className={cn(
-                      "rounded-md border p-2.5 text-left text-xs transition-colors",
-                      template === t.id
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/40 hover:bg-accent"
-                    )}
-                  >
-                    <div className="font-medium">{t.name}</div>
-                    <div className="text-[10px] text-muted-foreground">{t.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Name */}
             <div>
-              <label htmlFor="name" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              <label htmlFor="edit-name" className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 Project name
               </label>
               <Input
-                id="name"
-                placeholder="e.g. Mobile App Refactor"
+                id="edit-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                autoFocus
                 required
+                autoFocus
               />
             </div>
 
             {/* Description */}
             <div>
-              <label htmlFor="desc" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              <label htmlFor="edit-desc" className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 Description
               </label>
               <Textarea
-                id="desc"
-                placeholder="What is this project about?"
+                id="edit-desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
@@ -237,14 +180,14 @@ export function CreateProjectDialog({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setOpen(false)}
+              onClick={() => onOpenChange(false)}
               disabled={isPending}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={!name.trim() || isPending}>
               {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {isPending ? "Creating…" : "Create project"}
+              {isPending ? "Saving…" : "Save changes"}
             </Button>
           </DialogFooter>
         </form>

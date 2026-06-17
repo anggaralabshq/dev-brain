@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FolderKanban, Star, MoreHorizontal, Trash2 } from "lucide-react";
+import { FolderKanban, Star, MoreHorizontal, Trash2, Pencil } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -58,10 +58,12 @@ export function ProjectCard({
   project,
   onToggleStar,
   onDelete,
+  onEdit,
 }: {
   project: ProjectCardData;
   onToggleStar?: () => void;
   onDelete?: () => void;
+  onEdit?: () => void;
 }) {
   const c = colorMap[project.color] ?? colorMap.violet;
   const visibleMembers = project.members.slice(0, 3);
@@ -135,6 +137,10 @@ export function ProjectCard({
             <DropdownMenuItem onClick={(e) => { e.preventDefault(); onToggleStar?.(); }}>
               <Star className="h-3.5 w-3.5" />
               {project.starred ? "Unstar" : "Star"} project
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => { e.preventDefault(); onEdit?.(); }}>
+              <Pencil className="h-3.5 w-3.5" />
+              Edit project
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
