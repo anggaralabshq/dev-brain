@@ -80,6 +80,38 @@ export async function updateTaskStatusAction(taskId: string, status: string) {
   return { ok: true as const };
 }
 
+export async function updateTaskAction(
+  taskId: string,
+  data: {
+    title?: string;
+    description?: string;
+    status?: "todo" | "in_progress" | "in_review" | "done" | "archived";
+    priority?: "low" | "medium" | "high" | "urgent";
+    dueDate?: string | null;
+    estimatedPomodoros?: number | null;
+  }
+) {
+  const user = await requireUser().catch(() => null);
+  if (!user) return { ok: false as const, error: "Not authenticated" };
+
+  const completedAt =
+    data.status === "done" ? new Date() : data.status !== undefined ? null : undefined;
+
+  const [updated] = await db
+    .update(tasks)
+    .set({
+      ...data,
+      ...(completedAt !== undefined ? { completedAt } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(tasks.id, taskId))
+    .returning({ projectId: tasks.projectId });
+
+  if (updated?.projectId) await recalcProjectProgress(updated.projectId);
+  revalidatePath("/projects");
+  return { ok: true as const };
+}
+
 export async function deleteTaskAction(taskId: string) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Not authenticated" };

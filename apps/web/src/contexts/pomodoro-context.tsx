@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPomodoroSession, updatePomodoroSession, getPomodoroStatsAction } from "@/lib/actions/pomodoro";
+import { updateTaskStatusAction } from "@/lib/actions/tasks";
 
 export const WORK_MS = 25 * 60 * 1000;
 export const BREAK_MS = 5 * 60 * 1000;
@@ -222,12 +223,18 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 
   const completeSession = useCallback(async (opts?: CompleteSessionOpts) => {
     const sessionId = state.serverSessionId;
+    const taskId = state.taskId;
+
     if (sessionId) {
       await updatePomodoroSession({
         sessionId,
         status: "completed",
         sessionNote: opts?.note,
       });
+    }
+
+    if (opts?.markDone && taskId) {
+      await updateTaskStatusAction(taskId, "done");
     }
 
     setState(prev => {
@@ -281,7 +288,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
         projectId: opts?.markDone ? null : prev.projectId,
       };
     });
-  }, [state.serverSessionId]);
+  }, [state.serverSessionId, state.taskId]);
 
   const completeEarly = useCallback(() => {
     setState(prev => {

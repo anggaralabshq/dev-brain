@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { updateTaskStatusAction, deleteTaskAction } from "@/lib/actions/tasks";
+import { TaskDetailModal } from "./task-detail-modal";
 
 export type Task = {
   id: string;
@@ -78,10 +79,12 @@ function TaskCardInner({
   task,
   isDragging = false,
   dragHandleProps,
+  onOpenDetail,
 }: {
   task: Task;
   isDragging?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
+  onOpenDetail?: (task: Task) => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [focusConfirmOpen, setFocusConfirmOpen] = useState(false);
@@ -136,7 +139,13 @@ function TaskCardInner({
         </button>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium leading-snug">{task.title}</p>
+          <button
+            type="button"
+            onClick={() => !isDragging && onOpenDetail?.(task)}
+            className="text-left text-sm font-medium leading-snug hover:underline decoration-muted-foreground/40 underline-offset-2"
+          >
+            {task.title}
+          </button>
           {task.description && (
             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
               {task.description}
@@ -249,7 +258,7 @@ function TaskCardInner({
 
 // ── Draggable task card ──────────────────────────────────────────────────────
 
-function DraggableTaskCard({ task }: { task: Task }) {
+function DraggableTaskCard({ task, onOpenDetail }: { task: Task; onOpenDetail: (task: Task) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task },
@@ -264,6 +273,7 @@ function DraggableTaskCard({ task }: { task: Task }) {
     <div ref={setNodeRef} style={style}>
       <TaskCardInner
         task={task}
+        onOpenDetail={onOpenDetail}
         dragHandleProps={{ ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>}
       />
     </div>
@@ -275,9 +285,11 @@ function DraggableTaskCard({ task }: { task: Task }) {
 function DroppableColumn({
   col,
   tasks,
+  onOpenDetail,
 }: {
   col: (typeof COLUMNS)[number];
   tasks: Task[];
+  onOpenDetail: (task: Task) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
 
@@ -303,7 +315,7 @@ function DroppableColumn({
         )}
       >
         {tasks.map((t) => (
-          <DraggableTaskCard key={t.id} task={t} />
+          <DraggableTaskCard key={t.id} task={t} onOpenDetail={onOpenDetail} />
         ))}
         {tasks.length === 0 && (
           <div className={cn(
@@ -331,7 +343,18 @@ export function TasksBoard({
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [, startTransition] = useTransition();
+
+  const handleOpenDetail = (task: Task) => {
+    setSelectedTask(task);
+    setDetailOpen(true);
+  };
+
+  const handleTaskUpdate = (updated: Task) => {
+    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  };
 
   useEffect(() => {
     setTasks(initialTasks);
@@ -392,7 +415,7 @@ export function TasksBoard({
       >
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           {grouped.map((col) => (
-            <DroppableColumn key={col.id} col={col} tasks={col.tasks} />
+            <DroppableColumn key={col.id} col={col} tasks={col.tasks} onOpenDetail={handleOpenDetail} />
           ))}
         </div>
 
@@ -409,11 +432,19 @@ export function TasksBoard({
           </summary>
           <div className="space-y-2 border-t border-border p-3">
             {archived.map((t) => (
-              <TaskCardInner key={t.id} task={t} />
+              <TaskCardInner key={t.id} task={t} onOpenDetail={handleOpenDetail} />
             ))}
           </div>
         </details>
       )}
+
+      <TaskDetailModal
+        key={selectedTask?.id}
+        task={selectedTask}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onUpdate={handleTaskUpdate}
+      />
     </div>
   );
 }
