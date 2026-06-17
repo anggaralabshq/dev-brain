@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const revalidate = 3600; // cache 1 hour
+export const dynamic = "force-dynamic";
 
 export type FeedItem = {
   id: string;
