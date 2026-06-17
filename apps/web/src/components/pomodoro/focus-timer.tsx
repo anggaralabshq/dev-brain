@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Pause, Play, X, Minimize2, Maximize2, Coffee } from "lucide-react";
+import { Pause, Play, X, Minimize2, Maximize2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePomodoro, WORK_MS, BREAK_MS } from "@/contexts/pomodoro-context";
 
@@ -14,9 +14,10 @@ function formatMs(ms: number) {
 }
 
 export function FocusTimer() {
-  const { state, pauseSession, resumeSession, abandonSession } = usePomodoro();
+  const { state, pauseSession, resumeSession, abandonSession, completeEarly } = usePomodoro();
   const [minimized, setMinimized] = useState(false);
   const [abandonConfirmOpen, setAbandonConfirmOpen] = useState(false);
+  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
 
   const visible = state.status === "running" || state.status === "paused" || state.status === "break";
   if (!visible) return null;
@@ -139,6 +140,17 @@ export function FocusTimer() {
               {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
               {isPaused ? "Resume" : "Pause"}
             </button>
+            <button
+              type="button"
+              onClick={() => setCompleteConfirmOpen(true)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                "border border-border hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-500"
+              )}
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              Complete
+            </button>
           </div>
         )}
 
@@ -171,6 +183,15 @@ export function FocusTimer() {
         description="Your current focus session will be marked as abandoned."
         confirmLabel="Abandon"
         onConfirm={abandonSession}
+      />
+      <ConfirmDialog
+        open={completeConfirmOpen}
+        onOpenChange={setCompleteConfirmOpen}
+        title="Complete session early?"
+        description="Session will be marked as completed and you can choose what to do next."
+        confirmLabel="Complete"
+        variant="default"
+        onConfirm={completeEarly}
       />
     </div>
   );

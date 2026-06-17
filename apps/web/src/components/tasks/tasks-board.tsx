@@ -51,6 +51,7 @@ export type Task = {
   assigneeName: string | null;
   assigneeColor: string | null;
   dueDate: string | null;
+  createdAt?: string | Date;
   estimatedPomodoros?: number;
   completedPomodoros?: number;
 };
@@ -181,9 +182,15 @@ function TaskCardInner({
           <Badge variant={priorityVariant[task.priority]} className="text-[9px] capitalize">
             {task.priority}
           </Badge>
-          {task.dueDate && (
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          {task.createdAt && (
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground/70" title="Created date">
               <Calendar className="h-2.5 w-2.5" />
+              {new Date(task.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </span>
+          )}
+          {task.dueDate && (
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Due date">
+              <Calendar className="h-2.5 w-2.5 text-amber-400" />
               {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
             </span>
           )}

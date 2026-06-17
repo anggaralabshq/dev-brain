@@ -18,6 +18,7 @@ import {
   getDailyHeatmap,
   getDailyTrend,
   getRecentSessions,
+  getSessionsForDate,
   type PomodoroSessionWithTask,
 } from "@/lib/db/pomodoro";
 
@@ -477,4 +478,12 @@ export async function getFocusAnalyticsAction(range: FocusRange = "30d") {
     trend,
     recentSessions,
   };
+}
+
+export async function getSessionsForDateAction(date: string) {
+  const user = await requireUser().catch(() => null);
+  if (!user) return { ok: false as const, error: "Not authenticated" };
+
+  const sessions = await getSessionsForDate(user.id, date);
+  return { ok: true as const, sessions };
 }

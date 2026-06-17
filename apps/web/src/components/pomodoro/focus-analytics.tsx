@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, XCircle, AlertCircle, Timer, Flame, BarChart2, Clock, Target, Activity, FolderKanban, ListTodo } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Timer, Flame, BarChart2, Clock, Target, Activity, FolderKanban, ListTodo, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { getFocusAnalyticsAction, type FocusRange } from "@/lib/actions/pomodoro";
+import { getFocusAnalyticsAction, getSessionsForDateAction, type FocusRange } from "@/lib/actions/pomodoro";
 import { EmptyState } from "@/components/empty-state";
 
 type AnalyticsData = Awaited<ReturnType<typeof getFocusAnalyticsAction>>;
@@ -25,17 +25,24 @@ const STATUS_CONFIG = {
 
 // ── Heatmap ──────────────────────────────────────────────────────────────────
 
-function Heatmap({ data }: { data: { date: string; count: number }[] }) {
+function Heatmap({
+  data,
+  onDayClick,
+  selectedDate,
+}: {
+  data: { date: string; count: number }[];
+  onDayClick?: (date: string) => void;
+  selectedDate?: string | null;
+}) {
   const map = new Map(data.map((d) => [d.date, d.count]));
   const maxCount = Math.max(...data.map((d) => d.count), 1);
 
-  // Build 12-week grid
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use UTC dates to match PostgreSQL's to_char(startedAt, 'YYYY-MM-DD') output
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const startDay = new Date(today);
-  startDay.setDate(today.getDate() - 83); // 12*7-1 days back
-  // align to Sunday
-  startDay.setDate(startDay.getDate() - startDay.getDay());
+  startDay.setUTCDate(today.getUTCDate() - 83);
+  startDay.setUTCDate(startDay.getUTCDate() - startDay.getUTCDay()); // align to Sunday
 
   const weeks: Date[][] = [];
   let cur = new Date(startDay);
@@ -43,12 +50,16 @@ function Heatmap({ data }: { data: { date: string; count: number }[] }) {
     const week: Date[] = [];
     for (let d = 0; d < 7; d++) {
       week.push(new Date(cur));
-      cur.setDate(cur.getDate() + 1);
+      cur.setUTCDate(cur.getUTCDate() + 1);
     }
     weeks.push(week);
   }
 
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  function utcDateKey(d: Date) {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  }
 
   function intensity(count: number) {
     if (count === 0) return "bg-muted/40";
@@ -65,10 +76,10 @@ function Heatmap({ data }: { data: { date: string; count: number }[] }) {
       <div className="flex gap-px pl-6">
         {weeks.map((week, wi) => {
           const first = week[0];
-          const showMonth = first.getDate() <= 7;
+          const showMonth = first.getUTCDate() <= 7;
           return (
             <div key={wi} className="w-3 shrink-0 text-[8px] text-muted-foreground">
-              {showMonth ? MONTHS[first.getMonth()] : ""}
+              {showMonth ? MONTHS[first.getUTCMonth()] : ""}
             </div>
           );
         })}
@@ -87,16 +98,20 @@ function Heatmap({ data }: { data: { date: string; count: number }[] }) {
         {weeks.map((week, wi) => (
           <div key={wi} className="flex flex-col gap-px">
             {week.map((day, di) => {
-              const key = day.toISOString().split("T")[0];
+              const key = utcDateKey(day);
               const count = map.get(key) ?? 0;
               const isFuture = day > today;
+              const isSelected = key === selectedDate;
               return (
                 <div
                   key={di}
                   title={`${key}: ${count} session${count !== 1 ? "s" : ""}`}
+                  onClick={() => !isFuture && onDayClick?.(key)}
                   className={cn(
-                    "h-3 w-3 rounded-sm transition-opacity",
-                    isFuture ? "opacity-0" : intensity(count)
+                    "h-3 w-3 rounded-sm transition-all",
+                    isFuture ? "opacity-0" : intensity(count),
+                    !isFuture && onDayClick && "cursor-pointer hover:ring-1 hover:ring-primary/60",
+                    isSelected && "ring-2 ring-primary ring-offset-1 ring-offset-card"
                   )}
                 />
               );
@@ -221,18 +236,222 @@ function SessionRow({ session }: { session: { id: string; status: string; starte
   );
 }
 
+// ── Daily task list ──────────────────────────────────────────────────────────
+
+type DailySession = { id: string; status: string; startedAt: Date | string; workDurationMin: number; taskTitle?: string | null; [key: string]: unknown };
+
+function DailyTaskList({
+  date,
+  sessions,
+  isLoading,
+  onClose,
+}: {
+  date: string;
+  sessions: DailySession[];
+  isLoading: boolean;
+  onClose: () => void;
+}) {
+  const totalMinutes = sessions.reduce((acc, s) => acc + s.workDurationMin, 0);
+  const completedCount = sessions.filter((s) => s.status === "completed").length;
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+  const dateLabel = new Date(date + "T12:00:00Z").toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  });
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-xs font-semibold">{dateLabel}</p>
+          {!isLoading && sessions.length > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {sessions.length} session{sessions.length !== 1 ? "s" : ""} · {completedCount} completed · {timeStr} focus
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          aria-label="Close"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      {isLoading ? (
+        <div className="text-xs text-muted-foreground text-center py-4">Loading…</div>
+      ) : sessions.length === 0 ? (
+        <EmptyState icon={Timer} title="No sessions" description="No focus sessions recorded on this day." size="inline" />
+      ) : (
+        <div>
+          {sessions.map((s) => (
+            <SessionRow key={s.id} session={s} />
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ── Calendar ─────────────────────────────────────────────────────────────────
+
+function FocusCalendar({
+  activityMap,
+  onDayClick,
+  selectedDate,
+}: {
+  activityMap: Map<string, number>;
+  onDayClick: (date: string) => void;
+  selectedDate?: string | null;
+}) {
+  const now = new Date();
+  const todayKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+
+  const [viewYear, setViewYear] = useState(now.getUTCFullYear());
+  const [viewMonth, setViewMonth] = useState(now.getUTCMonth());
+
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  const firstDay = new Date(Date.UTC(viewYear, viewMonth, 1));
+  const startOffset = firstDay.getUTCDay();
+  const daysInMonth = new Date(Date.UTC(viewYear, viewMonth + 1, 0)).getUTCDate();
+
+  const cells: (number | null)[] = [
+    ...Array(startOffset).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  function dateKey(day: number) {
+    return `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  function dotColor(count: number) {
+    if (count === 0) return "";
+    if (count <= 1) return "bg-emerald-900";
+    if (count <= 3) return "bg-emerald-700";
+    if (count <= 5) return "bg-emerald-500";
+    return "bg-emerald-400";
+  }
+
+  const isCurrentMonth = viewYear === now.getUTCFullYear() && viewMonth === now.getUTCMonth();
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); }
+    else setViewMonth((m) => m - 1);
+  }
+
+  function nextMonth() {
+    if (isCurrentMonth) return;
+    if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); }
+    else setViewMonth((m) => m + 1);
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={prevMonth}
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <p className="text-sm font-semibold">{MONTHS[viewMonth]} {viewYear}</p>
+        <button
+          type="button"
+          onClick={nextMonth}
+          disabled={isCurrentMonth}
+          className={cn("rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground", isCurrentMonth && "opacity-30 cursor-not-allowed")}
+          aria-label="Next month"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7">
+        {DAYS.map((d) => (
+          <div key={d} className="text-center text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60 py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Cells */}
+      <div className="grid grid-cols-7 gap-y-0.5">
+        {cells.map((day, i) => {
+          if (day === null) return <div key={i} />;
+          const key = dateKey(day);
+          const count = activityMap.get(key) ?? 0;
+          const isToday = key === todayKey;
+          const isSelected = key === selectedDate;
+          const isFuture = key > todayKey;
+
+          return (
+            <button
+              key={i}
+              type="button"
+              disabled={isFuture}
+              onClick={() => !isFuture && onDayClick(key)}
+              className={cn(
+                "flex flex-col items-center gap-0.5 rounded-md py-1.5 transition-colors",
+                isFuture ? "opacity-25 cursor-not-allowed" : "hover:bg-accent cursor-pointer",
+                isToday && !isSelected && "ring-1 ring-inset ring-primary/40",
+                isSelected && "bg-primary/20 ring-1 ring-inset ring-primary"
+              )}
+            >
+              <span className={cn(
+                "text-xs font-medium tabular-nums leading-none",
+                isToday && "text-primary",
+                isSelected && "text-primary font-semibold"
+              )}>
+                {day}
+              </span>
+              <div className={cn("h-1 w-1 rounded-full", count > 0 ? dotColor(count) : "opacity-0")}>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function FocusAnalytics({ initialData }: { initialData: AnalyticsData }) {
   const [data, setData] = useState(initialData);
   const [range, setRange] = useState<FocusRange>("30d");
   const [isPending, startTransition] = useTransition();
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dailySessions, setDailySessions] = useState<DailySession[]>([]);
+  const [isDailyPending, startDailyTransition] = useTransition();
 
   function changeRange(r: FocusRange) {
     setRange(r);
     startTransition(async () => {
       const next = await getFocusAnalyticsAction(r);
       setData(next);
+    });
+  }
+
+  function handleDayClick(date: string) {
+    if (selectedDate === date) {
+      setSelectedDate(null);
+      setDailySessions([]);
+      return;
+    }
+    setSelectedDate(date);
+    startDailyTransition(async () => {
+      const result = await getSessionsForDateAction(date);
+      if (result.ok) setDailySessions(result.sessions as DailySession[]);
     });
   }
 
@@ -297,7 +516,7 @@ export function FocusAnalytics({ initialData }: { initialData: AnalyticsData }) 
         <Card className="p-4 lg:col-span-3">
           <p className="mb-3 text-xs font-semibold">Activity Heatmap · last 12 weeks</p>
           {heatmap.length > 0
-            ? <Heatmap data={heatmap} />
+            ? <Heatmap data={heatmap} onDayClick={handleDayClick} selectedDate={selectedDate} />
             : <EmptyState icon={Activity} title="No activity yet" description="Complete focus sessions to build your heatmap." size="inline" />
           }
         </Card>
@@ -310,6 +529,44 @@ export function FocusAnalytics({ initialData }: { initialData: AnalyticsData }) 
           }
         </Card>
       </div>
+
+      {/* Calendar + Daily task list */}
+      {(() => {
+        const activityMap = new Map(heatmap.map((d) => [d.date, d.count]));
+        return (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+            <Card className="p-4 lg:col-span-2">
+              <div className="flex items-center gap-1.5 mb-4">
+                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-xs font-semibold">Activity Calendar</p>
+              </div>
+              <FocusCalendar
+                activityMap={activityMap}
+                onDayClick={handleDayClick}
+                selectedDate={selectedDate}
+              />
+            </Card>
+
+            <div className="lg:col-span-3">
+              {selectedDate ? (
+                <DailyTaskList
+                  date={selectedDate}
+                  sessions={dailySessions}
+                  isLoading={isDailyPending}
+                  onClose={() => { setSelectedDate(null); setDailySessions([]); }}
+                />
+              ) : (
+                <Card className="p-4 h-full flex items-center justify-center">
+                  <div className="text-center space-y-1.5">
+                    <CalendarDays className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                    <p className="text-xs text-muted-foreground">Click a day to see sessions</p>
+                  </div>
+                </Card>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Project breakdown + Task breakdown */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

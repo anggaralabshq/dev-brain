@@ -601,6 +601,43 @@ export async function getRecentSessions(
   return rows as unknown as PomodoroSessionWithTask[];
 }
 
+export async function getSessionsForDate(
+  userId: string,
+  date: string
+): Promise<PomodoroSessionWithTask[]> {
+  const { projects } = await import("@devbrain/db/schema");
+
+  const rows = await db
+    .select({
+      id: pomodoroSessions.id,
+      taskId: pomodoroSessions.taskId,
+      projectId: pomodoroSessions.projectId,
+      userId: pomodoroSessions.userId,
+      workDurationMin: pomodoroSessions.workDurationMin,
+      status: pomodoroSessions.status,
+      startedAt: pomodoroSessions.startedAt,
+      completedAt: pomodoroSessions.completedAt,
+      interruptedAt: pomodoroSessions.interruptedAt,
+      interruptionNote: pomodoroSessions.interruptionNote,
+      sessionNote: pomodoroSessions.sessionNote,
+      createdAt: pomodoroSessions.createdAt,
+      taskTitle: tasks.title,
+      projectName: projects.name,
+    })
+    .from(pomodoroSessions)
+    .leftJoin(tasks, eq(tasks.id, pomodoroSessions.taskId))
+    .innerJoin(projects, eq(projects.id, pomodoroSessions.projectId))
+    .where(
+      and(
+        eq(pomodoroSessions.userId, userId),
+        sql`to_char(${pomodoroSessions.startedAt}, 'YYYY-MM-DD') = ${date}`
+      )
+    )
+    .orderBy(pomodoroSessions.startedAt);
+
+  return rows as unknown as PomodoroSessionWithTask[];
+}
+
 export async function getTodaySessionCount(userId: string): Promise<number> {
   const todayStart = startOfDay(new Date());
   const [row] = await db

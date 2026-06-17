@@ -42,6 +42,7 @@ type PomodoroCtx = {
   resumeSession: () => void;
   abandonSession: () => void;
   completeSession: (opts?: CompleteSessionOpts) => void;
+  completeEarly: () => void;
 };
 
 const defaultState: PomodoroState = {
@@ -282,8 +283,15 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     });
   }, [state.serverSessionId]);
 
+  const completeEarly = useCallback(() => {
+    setState(prev => {
+      if (prev.status !== "running" && prev.status !== "paused") return prev;
+      return { ...prev, status: "complete", remainingMs: 0, startedAt: null };
+    });
+  }, []);
+
   return (
-    <PomodoroContext.Provider value={{ state, startSession, pauseSession, resumeSession, abandonSession, completeSession }}>
+    <PomodoroContext.Provider value={{ state, startSession, pauseSession, resumeSession, abandonSession, completeSession, completeEarly }}>
       {children}
     </PomodoroContext.Provider>
   );
