@@ -52,7 +52,7 @@ export default async function LearnPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 min-h-0 px-4 pb-4 pt-0">
-            <FeedPanel onItemAdded={() => {}} />
+            <FeedPanel />
           </CardContent>
         </Card>
 

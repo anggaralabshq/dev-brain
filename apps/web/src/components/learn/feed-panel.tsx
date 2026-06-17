@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
 function FeedCard({ item, onAdd }: { item: FeedItem; onAdd: () => void }) {
   const [added, setAdded] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const handleAdd = () => {
     startTransition(async () => {
@@ -37,6 +39,7 @@ function FeedCard({ item, onAdd }: { item: FeedItem; onAdd: () => void }) {
       if (res.ok) {
         setAdded(true);
         onAdd();
+        router.refresh();
       }
     });
   };
@@ -90,13 +93,14 @@ function FeedCard({ item, onAdd }: { item: FeedItem; onAdd: () => void }) {
   );
 }
 
-function AISuggestPanel({ onAdd }: { onAdd: () => void }) {
+function AISuggestPanel() {
   const [isPending, startTransition] = useTransition();
   const [suggestions, setSuggestions] = useState<Array<{
     title: string; description: string; category: string; tags: string[];
   }> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState<Set<number>>(new Set());
+  const router = useRouter();
 
   const analyze = () => {
     setError(null);
@@ -119,7 +123,7 @@ function AISuggestPanel({ onAdd }: { onAdd: () => void }) {
       });
       if (res.ok) {
         setAdded(prev => new Set([...prev, i]));
-        onAdd();
+        router.refresh();
       }
     });
   };
@@ -184,7 +188,7 @@ function AISuggestPanel({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-export function FeedPanel({ onItemAdded }: { onItemAdded: () => void }) {
+export function FeedPanel() {
   const [activeTab, setActiveTab] = useState<Tab | "ai">("github");
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -237,7 +241,7 @@ export function FeedPanel({ onItemAdded }: { onItemAdded: () => void }) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto space-y-2 pr-0.5">
         {activeTab === "ai" ? (
-          <AISuggestPanel onAdd={onItemAdded} />
+          <AISuggestPanel />
         ) : loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -248,7 +252,7 @@ export function FeedPanel({ onItemAdded }: { onItemAdded: () => void }) {
           <p className="text-center text-[11px] text-muted-foreground py-8">No items found</p>
         ) : (
           items.map(item => (
-            <FeedCard key={item.id} item={item} onAdd={onItemAdded} />
+            <FeedCard key={item.id} item={item} onAdd={() => {}} />
           ))
         )}
       </div>
