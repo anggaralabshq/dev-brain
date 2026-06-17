@@ -58,22 +58,23 @@ async function fetchGitHub(): Promise<FeedItem[]> {
   }));
 }
 
-// ── HN: AI/ML stories ────────────────────────────────────────────
+// ── HN: AI/ML stories (sorted by date, last 7 days) ─────────────
 async function fetchHN(): Promise<FeedItem[]> {
-  const cutoff = Math.floor((Date.now() - 7 * 86400000) / 1000);
+  // search_by_date returns newest first; filter client-side for AI topics
   const res = await fetch(
-    `https://hn.algolia.com/api/v1/search?tags=story&query=LLM+AI+agent&numericFilters=created_at_i%3E${cutoff},points%3E5&hitsPerPage=15`,
+    "https://hn.algolia.com/api/v1/search_by_date?tags=story&query=LLM+AI+agent+machine+learning&hitsPerPage=20",
     { cache: "no-store" }
   );
 
   if (!res.ok) {
-    console.error("[feeds/hn] status:", res.status);
+    console.error("[feeds/hn] status:", res.status, await res.text().catch(() => ""));
     return [];
   }
 
   const data = await res.json();
   return (data.hits ?? [])
-    .filter((h: { url?: string }) => !!h.url)
+    .filter((h: { url?: string; points?: number }) => !!h.url && (h.points ?? 0) >= 5)
+    .slice(0, 15)
     .map((h: {
       objectID: string; title: string; url: string;
       points: number; num_comments: number;
@@ -83,40 +84,51 @@ async function fetchHN(): Promise<FeedItem[]> {
       description: "",
       url: h.url,
       source: "hn" as const,
-      meta: `🔥 ${h.points} pts · 💬 ${h.num_comments}`,
+      meta: `🔥 ${h.points ?? 0} pts · 💬 ${h.num_comments ?? 0}`,
       tags: [],
     }));
 }
 
-// ── Papers With Code: latest AI papers ──────────────────────────
+// ── ArXiv: latest AI/ML papers ───────────────────────────────────
 async function fetchPapers(): Promise<FeedItem[]> {
   const res = await fetch(
-    "https://paperswithcode.com/api/v1/papers/?ordering=-published&format=json&page_size=15",
-    { cache: "no-store" }
+    "https://export.arxiv.org/api/query?search_query=cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CL&sortBy=submittedDate&sortOrder=descending&max_results=15",
+    {
+      headers: { "User-Agent": "DevBrain-App" },
+      cache: "no-store",
+    }
   );
 
   if (!res.ok) {
-    console.error("[feeds/papers] status:", res.status);
+    console.error("[feeds/papers] arxiv status:", res.status);
     return [];
   }
 
-  const data = await res.json();
-  return (data.results ?? []).map((p: {
-    id: string; title: string; abstract: string;
-    paper_url: string; github_url: string | null; stars: number | null;
-  }) => ({
-    id: `pw-${p.id}`,
-    title: p.title,
-    description: p.abstract ? p.abstract.slice(0, 200) + "…" : "",
-    url: p.paper_url,
-    source: "papers" as const,
-    meta: [
-      p.stars != null ? `⭐ ${p.stars}` : null,
-      p.github_url ? "📦 Code" : null,
-    ].filter(Boolean).join(" · ") || "📄 Paper",
-    tags: ["paper"],
-    stars: p.stars ?? undefined,
-  }));
+  const xml = await res.text();
+
+  // Parse Atom XML entries with regex — no xml2js dependency needed
+  const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
+
+  return entries.slice(0, 15).map((match, i) => {
+    const entry = match[1];
+    const id    = (entry.match(/<id>(.*?)<\/id>/) ?? [])[1]?.trim() ?? "";
+    const title = (entry.match(/<title>([\s\S]*?)<\/title>/) ?? [])[1]
+      ?.replace(/\s+/g, " ").trim() ?? "Untitled";
+    const summary = (entry.match(/<summary>([\s\S]*?)<\/summary>/) ?? [])[1]
+      ?.replace(/\s+/g, " ").trim() ?? "";
+    const arxivId = id.split("/abs/")[1]?.replace("v1","").replace(/v\d+$/,"") ?? `${i}`;
+    const url = id.startsWith("http") ? id : `https://arxiv.org/abs/${arxivId}`;
+
+    return {
+      id: `arxiv-${arxivId}`,
+      title,
+      description: summary.slice(0, 200) + (summary.length > 200 ? "…" : ""),
+      url,
+      source: "papers" as const,
+      meta: `📄 arXiv · ${arxivId}`,
+      tags: ["paper"],
+    };
+  });
 }
 
 export async function GET(req: NextRequest) {
