@@ -17,6 +17,7 @@ import {
   Timer,
   ChevronsLeft,
   ChevronsRight,
+  Telescope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -49,6 +50,7 @@ function buildMainNav(projectCount: number): NavItem[] {
     { label: "Home",      href: "/",          icon: Home },
     { label: "Projects",  href: "/projects",  icon: FolderKanban, badge: projectCount > 0 ? projectCount : undefined },
     { label: "Focus",     href: "/focus",     icon: Timer },
+    { label: "Learn",     href: "/learn",     icon: Telescope },
     { label: "Settings",  href: "/settings",  icon: Settings },
   ];
 }

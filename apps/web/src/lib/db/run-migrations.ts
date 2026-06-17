@@ -31,6 +31,26 @@ const MIGRATIONS: string[] = [
 
   // 0009: notifications_seen_at on users
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "notifications_seen_at" timestamptz`,
+
+  // 0010: learning_items table
+  `CREATE TYPE IF NOT EXISTS "learning_status" AS ENUM ('backlog', 'learning', 'done')`,
+  `CREATE TABLE IF NOT EXISTS "learning_items" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "title" text NOT NULL,
+    "description" text NOT NULL DEFAULT '',
+    "source_url" text,
+    "source_name" text,
+    "category" text,
+    "status" learning_status NOT NULL DEFAULT 'backlog',
+    "tags" text[] NOT NULL DEFAULT '{}',
+    "personal_note" text NOT NULL DEFAULT '',
+    "stars" integer,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    "updated_at" timestamptz DEFAULT now() NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS "learning_items_user_idx" ON "learning_items" ("user_id")`,
+  `CREATE INDEX IF NOT EXISTS "learning_items_status_idx" ON "learning_items" ("status")`,
 ];
 
 export async function runMigrations(): Promise<void> {

@@ -49,3 +49,11 @@ export const meetingStatusEnum = pgEnum("meeting_status", [
 ]);
 
 export type MeetingStatus = (typeof meetingStatusEnum.enumValues)[number];
+
+export const learningStatusEnum = pgEnum("learning_status", [
+  "backlog",
+  "learning",
+  "done",
+]);
+
+export type LearningStatus = (typeof learningStatusEnum.enumValues)[number];
