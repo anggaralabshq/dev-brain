@@ -33,7 +33,10 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "notifications_seen_at" timestamptz`,
 
   // 0010: learning_items table
-  `CREATE TYPE IF NOT EXISTS "learning_status" AS ENUM ('backlog', 'learning', 'done')`,
+  `DO $$ BEGIN
+    CREATE TYPE learning_status AS ENUM ('backlog', 'learning', 'done');
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$`,
   `CREATE TABLE IF NOT EXISTS "learning_items" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
     "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
