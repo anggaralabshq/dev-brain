@@ -43,17 +43,15 @@ services:
     container_name: devbrain-web
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
+    env_file:
+      - ./apps/web/.env
     environment:
+      # Override env_file values that need Docker-internal addressing
       DATABASE_URL: "postgresql://devbrain:devbrain_dev_only@postgres:5432/devbrain"
-      NEXT_PUBLIC_APP_URL: "${NEXT_PUBLIC_APP_URL:-http://localhost:3000}"
-      AUTH_URL: "http://localhost:3000"
-      AUTH_SECRET: "${AUTH_SECRET}"
+      AUTH_URL: "http://localhost:3001"
       AUTH_TRUST_HOST: "true"
-      GITHUB_ID: "${GITHUB_ID}"
-      GITHUB_SECRET: "${GITHUB_SECRET}"
-      TLDRAW_LICENSE_KEY: "${TLDRAW_LICENSE_KEY:-}"
-      NEXT_PUBLIC_TLDRAW_LICENSE_KEY: "${NEXT_PUBLIC_TLDRAW_LICENSE_KEY:-}"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3001"
     depends_on:
       postgres:
         condition: service_healthy
