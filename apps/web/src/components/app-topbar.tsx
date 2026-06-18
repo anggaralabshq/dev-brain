@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell, HelpCircle, LogOut, Settings as SettingsIcon,
-  User as UserIcon, Clock, GitBranch, CheckSquare, AlertCircle, X,
+  User as UserIcon, Clock, GitBranch, CheckSquare, AlertCircle, X, Search,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -200,6 +200,18 @@ export function AppTopbar({ user, unreadCount = 0 }: { user: CurrentUser | null;
 
   return (
     <header className="flex h-14 items-center justify-end gap-2 border-b border-border bg-card/40 px-5">
+
+      {/* Search trigger */}
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new CustomEvent("devbrain:search:open"))}
+        className="mr-2 flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        aria-label="Search"
+      >
+        <Search className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Search…</span>
+        <kbd className="hidden sm:inline rounded border border-border px-1 py-0.5 font-mono text-[10px]">⌘K</kbd>
+      </button>
 
       {/* Notifications */}
       <NotificationPanel initialUnreadCount={unreadCount} />

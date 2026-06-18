@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
+import { GlobalSearch } from "@/components/search/global-search";
 import type { CurrentUser } from "@/lib/auth/current-user";
 
 type StarredProject = { slug: string; name: string; color: string };
@@ -24,6 +25,7 @@ export function AppShell({
         <AppTopbar user={user} unreadCount={unreadCount} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+      <GlobalSearch />
     </div>
   );
 }
