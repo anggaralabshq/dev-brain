@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Search, FileText, FolderKanban, Loader2, ArrowRight, LayoutTemplate } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { searchNotesAction } from "@/lib/actions/notes";
 import { getProjectsForPickerAction } from "@/lib/actions/projects";
 import { cn } from "@/lib/utils";
@@ -116,6 +116,7 @@ export function CommandPalette() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="p-0 gap-0 max-w-lg overflow-hidden">
+        <DialogTitle className="sr-only">Command Palette</DialogTitle>
         {/* Search input */}
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           {isPending ? (
