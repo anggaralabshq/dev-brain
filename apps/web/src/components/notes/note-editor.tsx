@@ -28,6 +28,8 @@ import {
   Check,
   ImageIcon,
   Save,
+  Download,
+  Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,10 +48,29 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-function Toolbar({ editor }: { editor: Editor | null }) {
+function downloadBlob(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function Toolbar({ editor, title }: { editor: Editor | null; title: string }) {
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   if (!editor) return null;
+
+  const filename = title.trim().replace(/[^a-zA-Z0-9_\- ]/g, "").trim() || "note";
+
+  const handleExportMarkdown = () => {
+    // tiptap-markdown provides getMarkdown() via editor.storage
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const md: string = (editor.storage as any).markdown?.getMarkdown?.() ?? editor.getText();
+    downloadBlob(md, `${filename}.md`, "text/markdown");
+  };
 
   const items = [
     { icon: Heading1, label: "H1", action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), active: editor.isActive("heading", { level: 1 }) },
@@ -132,6 +153,23 @@ function Toolbar({ editor }: { editor: Editor | null }) {
         disabled={!editor.can().redo()}
       >
         <Redo2 className="h-3.5 w-3.5" />
+      </button>
+      <div className="mx-1 h-4 w-px bg-border" />
+      <button
+        type="button"
+        onClick={handleExportMarkdown}
+        title="Export as Markdown"
+        className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <Download className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => window.print()}
+        title="Print / Export PDF"
+        className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <Printer className="h-3.5 w-3.5" />
       </button>
     </div>
   );
@@ -305,7 +343,7 @@ export function NoteEditor({
         />
       </div>
 
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} title={title} />
 
       <EditorContent editor={editor} />
 

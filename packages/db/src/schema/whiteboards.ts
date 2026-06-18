@@ -2,10 +2,13 @@ import {
   pgTable,
   uuid,
   text,
+  boolean,
   jsonb,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./users";
 import { projects } from "./projects";
 
@@ -22,6 +25,9 @@ export const whiteboards = pgTable(
     data: jsonb("data").notNull().$type<unknown>(),
     /** Optional thumbnail / preview (data URL) */
     thumbnail: text("thumbnail"),
+    isPublic: boolean("is_public").notNull().default(false),
+    /** UUID token for public share links — null when not shared */
+    shareToken: text("share_token"),
     authorId: uuid("author_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -35,6 +41,9 @@ export const whiteboards = pgTable(
   },
   (table) => ({
     projectIdx: index("whiteboards_project_idx").on(table.projectId),
+    shareTokenUq: uniqueIndex("whiteboards_share_token_uq")
+      .on(table.shareToken)
+      .where(sql`${table.shareToken} IS NOT NULL`),
   })
 );
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@devbrain/db";
 import { whiteboards } from "@devbrain/db/schema";
 import { eq } from "drizzle-orm";
+import { randomUUID } from "crypto";
 import { requireUser } from "@/lib/auth/current-user";
 
 export async function createWhiteboardAction(projectId: string, title: string) {
@@ -55,6 +56,25 @@ export async function saveWhiteboardAction(
   await db.update(whiteboards).set(set).where(eq(whiteboards.id, id));
   revalidatePath("/projects", "layout");
   return { ok: true as const };
+}
+
+export async function toggleShareAction(id: string) {
+  const user = await requireUser().catch(() => null);
+  if (!user) return { ok: false as const, error: "Not authenticated" };
+
+  const [wb] = await db.select({ isPublic: whiteboards.isPublic, shareToken: whiteboards.shareToken })
+    .from(whiteboards).where(eq(whiteboards.id, id)).limit(1);
+  if (!wb) return { ok: false as const, error: "Not found" };
+
+  const nowPublic = !wb.isPublic;
+  const token = nowPublic ? (wb.shareToken ?? randomUUID()) : wb.shareToken;
+
+  await db.update(whiteboards)
+    .set({ isPublic: nowPublic, shareToken: token })
+    .where(eq(whiteboards.id, id));
+
+  revalidatePath("/projects", "layout");
+  return { ok: true as const, isPublic: nowPublic, shareToken: token };
 }
 
 export async function deleteWhiteboardAction(id: string) {

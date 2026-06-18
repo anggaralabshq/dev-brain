@@ -14,6 +14,8 @@ export type WhiteboardWithMeta = {
   description: string;
   data: unknown;
   thumbnail: string | null;
+  isPublic: boolean;
+  shareToken: string | null;
   authorId: string;
   authorName: string;
   createdAt: Date;
@@ -59,6 +61,23 @@ export async function getWhiteboardById(id: string): Promise<WhiteboardWithMeta 
     authorName: row.author ?? "Unknown",
     projectName: row.project ?? "",
   };
+}
+
+export async function getWhiteboardByShareToken(token: string): Promise<WhiteboardWithMeta | null> {
+  const [row] = await db
+    .select({
+      wb: whiteboards,
+      author: users.name,
+      project: projects.name,
+    })
+    .from(whiteboards)
+    .leftJoin(users, eq(users.id, whiteboards.authorId))
+    .leftJoin(projects, eq(projects.id, whiteboards.projectId))
+    .where(eq(whiteboards.shareToken, token))
+    .limit(1);
+
+  if (!row || !row.wb.isPublic) return null;
+  return { ...row.wb, authorName: row.author ?? "Unknown", projectName: row.project ?? "" };
 }
 
 export async function getWhiteboardCount(projectId: string): Promise<number> {

@@ -3,6 +3,7 @@
 import {
   Tldraw,
   serializeTldrawJson,
+  exportAs,
   type Editor,
   // @ts-ignore — parseAndLoadDocument is @internal in tldraw v5 open-source
   // but works with a license. We import via require to bypass the type check.
@@ -10,10 +11,17 @@ import {
 import "tldraw/tldraw.css";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save, Check, Trash2 } from "lucide-react";
+import { Loader2, Save, Check, Trash2, Download, Share2, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { saveWhiteboardAction, deleteWhiteboardAction } from "@/lib/actions/whiteboards";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { saveWhiteboardAction, deleteWhiteboardAction, toggleShareAction } from "@/lib/actions/whiteboards";
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error";
 
@@ -61,11 +69,15 @@ export function WhiteboardEditor({
   whiteboardId,
   initialData,
   initialTitle,
+  initialIsPublic,
+  initialShareToken,
   projectSlug,
 }: {
   whiteboardId: string;
   initialData?: string | null;
   initialTitle: string;
+  initialIsPublic?: boolean;
+  initialShareToken?: string | null;
   projectSlug: string;
 }) {
   const router = useRouter();
@@ -73,6 +85,8 @@ export function WhiteboardEditor({
   const [status, setStatus] = useState<SaveStatus>("saved");
   const [isMounted, setIsMounted] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isPublic, setIsPublic] = useState(initialIsPublic ?? false);
+  const [shareToken, setShareToken] = useState(initialShareToken ?? null);
   const [, startTransition] = useTransition();
   const editorRef = useRef<Editor | null>(null);
   const lastSaveRef = useRef<string>("");
@@ -160,6 +174,36 @@ export function WhiteboardEditor({
     };
   }, []);
 
+  const handleExport = async (format: "png" | "svg") => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const ids = [...editor.getCurrentPageShapeIds()];
+    if (ids.length === 0) return;
+    await exportAs(editor, ids, { format, name: title });
+  };
+
+  const handleToggleShare = () => {
+    startTransition(async () => {
+      const result = await toggleShareAction(whiteboardId);
+      if (result.ok) {
+        setIsPublic(result.isPublic);
+        setShareToken(result.shareToken ?? null);
+        if (result.isPublic && result.shareToken) {
+          const url = `${window.location.origin}/share/diagram/${result.shareToken}`;
+          await navigator.clipboard.writeText(url).catch(() => {});
+          alert(`Share link copied!\n\n${url}`);
+        }
+      }
+    });
+  };
+
+  const handleCopyLink = async () => {
+    if (!shareToken) return;
+    const url = `${window.location.origin}/share/diagram/${shareToken}`;
+    await navigator.clipboard.writeText(url).catch(() => {});
+    alert(`Link copied!\n\n${url}`);
+  };
+
   return (
     <div
       className="flex flex-col rounded-md border border-border bg-card overflow-hidden"
@@ -178,6 +222,53 @@ export function WhiteboardEditor({
           placeholder="Diagram title"
         />
         <SaveStatusBadge status={status} />
+
+        {/* Export */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" disabled={!isMounted}>
+              <Download className="h-3.5 w-3.5" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport("png")}>
+              Export as PNG
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport("svg")}>
+              Export as SVG
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Share */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant={isPublic ? "default" : "outline"}
+              disabled={!isMounted}
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              {isPublic ? "Shared" : "Share"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleToggleShare}>
+              {isPublic ? "Stop sharing (make private)" : "Share publicly (copy link)"}
+            </DropdownMenuItem>
+            {isPublic && shareToken && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  <Link className="h-3.5 w-3.5" />
+                  Copy share link
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Button size="sm" variant="outline" onClick={saveNow} disabled={!isMounted}>
           <Save className="h-3.5 w-3.5" />
           Save
