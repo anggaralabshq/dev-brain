@@ -11,6 +11,7 @@ import { AppShell } from "@/components/app-shell";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { PomodoroProvider } from "@/contexts/pomodoro-context";
 import { FocusTimer } from "@/components/pomodoro/focus-timer";
+import { AmbientPlayer } from "@/components/pomodoro/ambient-player";
 import { SessionCompleteModal } from "@/components/pomodoro/session-complete-modal";
 import { CommandPalette } from "@/components/command-palette";
 import { AIChatWidget } from "@/components/ai/chat-widget";
@@ -43,6 +44,7 @@ export function AppShellWrapper({
     <PomodoroProvider>
       <AppShell user={user} starredProjects={starredProjects} projectCount={projectCount} unreadCount={unreadCount}>{children}</AppShell>
       <FocusTimer />
+      <AmbientPlayer />
       <SessionCompleteModal />
       {user && <CommandPalette />}
       {user && <AIChatWidget />}

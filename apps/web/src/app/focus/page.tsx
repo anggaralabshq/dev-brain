@@ -1,6 +1,7 @@
 import { getFocusAnalyticsAction, getTodayPanelAction } from "@/lib/actions/pomodoro";
 import { FocusAnalytics } from "@/components/pomodoro/focus-analytics";
 import { TodayPanel } from "@/components/pomodoro/today-panel";
+import { StreakCard } from "@/components/pomodoro/streak-card";
 
 export default async function FocusPage() {
   const [analytics, todayData] = await Promise.all([
@@ -17,13 +18,22 @@ export default async function FocusPage() {
         </p>
       </div>
 
-      {todayData.ok && (
-        <TodayPanel data={{
-          todayTasks: todayData.todayTasks,
-          dailyGoal: todayData.dailyGoal,
-          completedToday: todayData.completedToday,
-        }} />
-      )}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {todayData.ok && (
+          <TodayPanel data={{
+            todayTasks: todayData.todayTasks,
+            dailyGoal: todayData.dailyGoal,
+            completedToday: todayData.completedToday,
+          }} />
+        )}
+        {analytics.ok && (
+          <StreakCard data={{
+            current: analytics.streak.current,
+            longest: analytics.streak.longest,
+            heatmap: analytics.heatmap,
+          }} />
+        )}
+      </div>
 
       <FocusAnalytics initialData={analytics} />
     </div>

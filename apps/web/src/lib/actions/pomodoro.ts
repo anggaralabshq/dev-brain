@@ -458,7 +458,7 @@ export async function getFocusAnalyticsAction(range: FocusRange = "30d") {
 
   const since = sinceFromRange(range);
 
-  const [overview, projectBreakdown, taskBreakdown, heatmap, trend, recentSessions] =
+  const [overview, projectBreakdown, taskBreakdown, heatmap, trend, recentSessions, pomodoroStats] =
     await Promise.all([
       getAnalyticsOverview(user.id, since),
       getProjectBreakdown(user.id, since),
@@ -466,6 +466,7 @@ export async function getFocusAnalyticsAction(range: FocusRange = "30d") {
       getDailyHeatmap(user.id, 84),
       getDailyTrend(user.id, 14),
       getRecentSessions(user.id, 15, since),
+      getPomodoroStats(user.id),
     ]);
 
   return {
@@ -477,6 +478,10 @@ export async function getFocusAnalyticsAction(range: FocusRange = "30d") {
     heatmap,
     trend,
     recentSessions,
+    streak: {
+      current: pomodoroStats.currentStreak,
+      longest: pomodoroStats.longestStreak,
+    },
   };
 }
 
