@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { db } from "@devbrain/db";
 import { pomodoroSessions, pomodoroSettings, tasks } from "@devbrain/db/schema";
 import { eq, and, gte, sql, count, sum } from "drizzle-orm";
@@ -98,6 +98,7 @@ export async function completeSessionAction(sessionId: string, note?: string) {
   });
 
   revalidatePath("/");
+  revalidateTag("focus-analytics", {});
   return { ok: true as const };
 }
 
@@ -452,37 +453,33 @@ function sinceFromRange(range: FocusRange): Date {
   return new Date(0); // all time
 }
 
+// Cached analytics fetcher — keyed by userId + range, TTL 5 min.
+// revalidated on session complete/interrupt via revalidateTag("focus-analytics").
+function _makeAnalyticsFetcher(userId: string, range: FocusRange) {
+  return unstable_cache(
+    async () => {
+      const since = sinceFromRange(range);
+      const [overview, projectBreakdown, taskBreakdown, heatmap, trend, recentSessions, pomodoroStats] =
+        await Promise.all([
+          getAnalyticsOverview(userId, since),
+          getProjectBreakdown(userId, since),
+          getTaskBreakdown(userId, since),
+          getDailyHeatmap(userId, 84),
+          getDailyTrend(userId, 14),
+          getRecentSessions(userId, 15, since),
+          getPomodoroStats(userId),
+        ]);
+      return { ok: true as const, range, overview, projectBreakdown, taskBreakdown, heatmap, trend, recentSessions, streak: { current: pomodoroStats.currentStreak, longest: pomodoroStats.longestStreak } };
+    },
+    [`focus-analytics:${userId}:${range}`],
+    { revalidate: 300, tags: ["focus-analytics"] }
+  );
+}
+
 export async function getFocusAnalyticsAction(range: FocusRange = "30d") {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Not authenticated" };
-
-  const since = sinceFromRange(range);
-
-  const [overview, projectBreakdown, taskBreakdown, heatmap, trend, recentSessions, pomodoroStats] =
-    await Promise.all([
-      getAnalyticsOverview(user.id, since),
-      getProjectBreakdown(user.id, since),
-      getTaskBreakdown(user.id, since),
-      getDailyHeatmap(user.id, 84),
-      getDailyTrend(user.id, 14),
-      getRecentSessions(user.id, 15, since),
-      getPomodoroStats(user.id),
-    ]);
-
-  return {
-    ok: true as const,
-    range,
-    overview,
-    projectBreakdown,
-    taskBreakdown,
-    heatmap,
-    trend,
-    recentSessions,
-    streak: {
-      current: pomodoroStats.currentStreak,
-      longest: pomodoroStats.longestStreak,
-    },
-  };
+  return _makeAnalyticsFetcher(user.id, range)();
 }
 
 export async function getSessionsForDateAction(date: string) {

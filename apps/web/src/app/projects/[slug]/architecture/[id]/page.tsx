@@ -4,7 +4,20 @@ import Link from "next/link";
 import { ChevronRight, Network } from "lucide-react";
 import { getWhiteboardById } from "@/lib/db/whiteboards";
 import { getProjectBySlug } from "@/lib/db/projects";
-import { WhiteboardEditor } from "@/components/architecture/whiteboard-editor";
+import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
+
+const WhiteboardEditor = dynamic(
+  () => import("@/components/architecture/whiteboard-editor").then((m) => ({ default: m.WhiteboardEditor })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-96 items-center justify-center text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    ),
+  }
+);
 
 export default async function WhiteboardEditorPage({
   params,

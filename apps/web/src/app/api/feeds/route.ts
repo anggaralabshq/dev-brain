@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+// In-memory cache — scoped to server process lifetime, resets on cold start
+const feedCache = new Map<string, { data: FeedItem[]; ts: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 min matches slot rotation
+
 export type FeedItem = {
   id: string;
   title: string;
@@ -146,6 +150,13 @@ async function fetchPapers(): Promise<FeedItem[]> {
 
 export async function GET(req: NextRequest) {
   const source = req.nextUrl.searchParams.get("source") ?? "github";
+  const slot   = Math.floor(Date.now() / SLOT_MS);
+  const cacheKey = `${source}:${slot}`;
+
+  const cached = feedCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return NextResponse.json({ items: cached.data, cached: true });
+  }
 
   try {
     let items: FeedItem[] = [];
@@ -153,12 +164,13 @@ export async function GET(req: NextRequest) {
     else if (source === "hn") items = await fetchHN();
     else if (source === "papers") items = await fetchPapers();
 
-    if (source === "github") {
-    const slot  = Math.floor(Date.now() / SLOT_MS);
-    console.log(`[feeds/github] slot ${slot % GH_TOPICS.length} → ${GH_TOPICS[slot % GH_TOPICS.length]}, ${items.length} items`);
-  } else {
-    console.log(`[feeds/${source}] returning ${items.length} items`);
-  }
+    feedCache.set(cacheKey, { data: items, ts: Date.now() });
+    // Evict old entries (keep only last 10 keys)
+    if (feedCache.size > 10) {
+      feedCache.delete(feedCache.keys().next().value!);
+    }
+
+    console.log(`[feeds/${source}] slot ${slot % GH_TOPICS.length}, ${items.length} items`);
     return NextResponse.json({ items });
   } catch (err) {
     console.error(`[feeds/${source}] error:`, err);

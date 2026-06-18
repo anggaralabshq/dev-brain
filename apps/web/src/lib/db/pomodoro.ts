@@ -219,10 +219,12 @@ export async function getPomodoroStats(userId: string): Promise<PomodoroStats> {
       .where(
         and(
           eq(pomodoroSessions.userId, userId),
-          eq(pomodoroSessions.status, "completed")
+          eq(pomodoroSessions.status, "completed"),
+          gte(pomodoroSessions.startedAt, new Date(Date.now() - 366 * 86400000))
         )
       )
-      .orderBy(desc(pomodoroSessions.startedAt)),
+      .orderBy(desc(pomodoroSessions.startedAt))
+      .limit(366),
   ]);
 
   const todayCount = todayRows[0]?.n ?? 0;
