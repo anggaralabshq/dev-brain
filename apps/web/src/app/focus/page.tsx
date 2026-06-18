@@ -1,8 +1,12 @@
-import { getFocusAnalyticsAction } from "@/lib/actions/pomodoro";
+import { getFocusAnalyticsAction, getTodayPanelAction } from "@/lib/actions/pomodoro";
 import { FocusAnalytics } from "@/components/pomodoro/focus-analytics";
+import { TodayPanel } from "@/components/pomodoro/today-panel";
 
 export default async function FocusPage() {
-  const data = await getFocusAnalyticsAction("30d");
+  const [analytics, todayData] = await Promise.all([
+    getFocusAnalyticsAction("30d"),
+    getTodayPanelAction(),
+  ]);
 
   return (
     <div className="p-6 space-y-6">
@@ -12,7 +16,16 @@ export default async function FocusPage() {
           Track your focus sessions, project distribution, and productivity trends.
         </p>
       </div>
-      <FocusAnalytics initialData={data} />
+
+      {todayData.ok && (
+        <TodayPanel data={{
+          todayTasks: todayData.todayTasks,
+          dailyGoal: todayData.dailyGoal,
+          completedToday: todayData.completedToday,
+        }} />
+      )}
+
+      <FocusAnalytics initialData={analytics} />
     </div>
   );
 }

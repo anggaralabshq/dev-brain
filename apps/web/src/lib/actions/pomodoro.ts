@@ -487,3 +487,52 @@ export async function getSessionsForDateAction(date: string) {
   const sessions = await getSessionsForDate(user.id, date);
   return { ok: true as const, sessions };
 }
+
+export type TodayTask = {
+  taskId: string | null;
+  taskTitle: string | null;
+  projectId: string;
+  projectName: string | null;
+  sessionCount: number;
+  completedCount: number;
+  totalMin: number;
+};
+
+export async function getTodayPanelAction() {
+  const user = await requireUser().catch(() => null);
+  if (!user) return { ok: false as const, error: "Not authenticated" };
+
+  const today = new Date().toISOString().split("T")[0];
+  const [sessions, settings] = await Promise.all([
+    getSessionsForDate(user.id, today),
+    getPomodoroSettingsByUserId(user.id),
+  ]);
+
+  const taskMap = new Map<string, TodayTask>();
+  for (const s of sessions) {
+    const key = s.taskId ?? "__no_task__";
+    if (!taskMap.has(key)) {
+      taskMap.set(key, {
+        taskId: s.taskId,
+        taskTitle: (s as PomodoroSessionWithTask & { projectName?: string; taskTitle?: string }).taskTitle ?? null,
+        projectId: s.projectId,
+        projectName: (s as PomodoroSessionWithTask & { projectName?: string }).projectName ?? null,
+        sessionCount: 0,
+        completedCount: 0,
+        totalMin: 0,
+      });
+    }
+    const t = taskMap.get(key)!;
+    t.sessionCount++;
+    if (s.status === "completed") {
+      t.completedCount++;
+      t.totalMin += s.workDurationMin;
+    }
+  }
+
+  const todayTasks = [...taskMap.values()].sort((a, b) => b.sessionCount - a.sessionCount);
+  const completedToday = sessions.filter(s => s.status === "completed").length;
+  const dailyGoal = settings?.dailyGoal ?? 8;
+
+  return { ok: true as const, todayTasks, dailyGoal, completedToday };
+}

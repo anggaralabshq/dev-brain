@@ -146,6 +146,13 @@ export function AppSidebar({
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === "true") setCollapsed(true);
     setMounted(true);
+
+    const handler = (e: Event) => {
+      const v = (e as CustomEvent<{ collapsed: boolean }>).detail?.collapsed;
+      if (typeof v === "boolean") setCollapsed(v);
+    };
+    window.addEventListener("devbrain:sidebar:collapsed", handler);
+    return () => window.removeEventListener("devbrain:sidebar:collapsed", handler);
   }, []);
 
   function toggle() {

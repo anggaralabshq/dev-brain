@@ -46,11 +46,19 @@ export default async function RootLayout({
     .slice(0, 5)
     .map((p) => ({ slug: p.slug, name: p.name, color: p.color }));
   const projectCount = allProjects.length;
+  // Theme init script — reads localStorage before first paint (no flash). Static string, no XSS risk.
+  const themeScript = `(function(){try{var t=localStorage.getItem('devbrain:theme')||'dark';if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){document.documentElement.classList.add('dark');}})()`;
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* nosec: static string, no user input */}
+        {/* eslint-disable-next-line @next/next/no-before-interactive-script-component */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="h-full" suppressHydrationWarning>
         <AppShellWrapper user={user} starredProjects={starredProjects} projectCount={projectCount} unreadCount={unreadCount}>{children}</AppShellWrapper>
       </body>

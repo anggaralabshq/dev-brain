@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import {
   User, Palette, Bell, Plug, Info, Shield,
   Check, Monitor, Sun, Moon, Github, Slack,
   ChevronRight, Lock, KeyRound, LogOut,
-  Globe, Zap, Mail, MessageSquare,
+  Globe, Zap, Mail, MessageSquare, Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { CurrentUser } from "@/lib/auth/current-user";
+import { getPomodoroSettings, updatePomodoroSettings } from "@/lib/actions/pomodoro";
 
 type Section = {
   id: string;
@@ -65,6 +66,129 @@ function Toggle({
   );
 }
 
+type PomodoroForm = {
+  workDurationMin: number;
+  shortBreakMin: number;
+  longBreakMin: number;
+  longBreakAfter: number;
+  autoStartBreaks: boolean;
+  dailyGoal: number;
+};
+
+const POMO_DEFAULTS: PomodoroForm = {
+  workDurationMin: 25,
+  shortBreakMin: 5,
+  longBreakMin: 20,
+  longBreakAfter: 4,
+  autoStartBreaks: false,
+  dailyGoal: 8,
+};
+
+function NumStepper({
+  label, description, value, min, max, step = 1,
+  onChange,
+}: {
+  label: string; description?: string;
+  value: number; min: number; max: number; step?: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between py-3">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => onChange(Math.max(min, value - step))}
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-border hover:bg-accent text-sm font-medium"
+        >−</button>
+        <span className="w-10 text-center text-sm font-semibold tabular-nums">{value}</span>
+        <button
+          type="button"
+          onClick={() => onChange(Math.min(max, value + step))}
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-border hover:bg-accent text-sm font-medium"
+        >+</button>
+      </div>
+    </div>
+  );
+}
+
+function FocusSettingsPanel() {
+  const [form, setForm] = useState<PomodoroForm>(POMO_DEFAULTS);
+  const [loaded, setLoaded] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    getPomodoroSettings().then((res) => {
+      if (res.ok && res.settings) {
+        setForm({
+          workDurationMin: res.settings.workDurationMin,
+          shortBreakMin:   res.settings.shortBreakMin,
+          longBreakMin:    res.settings.longBreakMin,
+          longBreakAfter:  res.settings.longBreakAfter,
+          autoStartBreaks: res.settings.autoStartBreaks,
+          dailyGoal:       res.settings.dailyGoal,
+        });
+      }
+      setLoaded(true);
+    });
+  }, []);
+
+  const set = (key: keyof PomodoroForm) => (v: number | boolean) =>
+    setForm((f) => ({ ...f, [key]: v }));
+
+  const save = () => {
+    startTransition(async () => {
+      await updatePomodoroSettings(form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    });
+  };
+
+  if (!loaded) return <div className="text-sm text-muted-foreground">Loading…</div>;
+
+  return (
+    <div className="space-y-6 max-w-xl">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Session Durations</CardTitle>
+        </CardHeader>
+        <CardContent className="divide-y divide-border">
+          <NumStepper label="Work duration" description="Minutes per focus session." value={form.workDurationMin} min={5} max={90} step={5} onChange={set("workDurationMin")} />
+          <NumStepper label="Short break"   description="Break after each session."  value={form.shortBreakMin}   min={1} max={30} step={1} onChange={set("shortBreakMin")} />
+          <NumStepper label="Long break"    description="Break after N sessions."     value={form.longBreakMin}    min={5} max={60} step={5} onChange={set("longBreakMin")} />
+          <NumStepper label="Long break after" description="Sessions before long break." value={form.longBreakAfter} min={2} max={8} step={1} onChange={set("longBreakAfter")} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Daily Goal</CardTitle>
+        </CardHeader>
+        <CardContent className="divide-y divide-border">
+          <NumStepper label="Target pomodoros" description="Sessions to complete each day." value={form.dailyGoal} min={1} max={20} step={1} onChange={set("dailyGoal")} />
+          <Toggle
+            checked={form.autoStartBreaks}
+            onChange={(v) => set("autoStartBreaks")(v)}
+            label="Auto-start breaks"
+            description="Automatically begin break timer after a session."
+          />
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center gap-3">
+        <Button onClick={save} disabled={isPending} size="sm">
+          {isPending ? "Saving…" : "Save changes"}
+        </Button>
+        {saved && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check className="h-3 w-3" /> Saved</span>}
+      </div>
+    </div>
+  );
+}
+
 function SectionPanel({ active, user }: { active: string; user: CurrentUser | null }) {
   // Appearance state
   const [theme, setTheme] = useState<Theme>("dark");
@@ -89,10 +213,11 @@ function SectionPanel({ active, user }: { active: string; user: CurrentUser | nu
     setTheme(t);
     localStorage.setItem(THEME_KEY, t);
     const html = document.documentElement;
-    if (t === "light") {
-      html.classList.remove("dark");
-    } else {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (t === "dark" || (t === "system" && prefersDark)) {
       html.classList.add("dark");
+    } else {
+      html.classList.remove("dark");
     }
   }
 
@@ -198,6 +323,7 @@ function SectionPanel({ active, user }: { active: string; user: CurrentUser | nu
               onChange={(v) => {
                 setSidebarDefault(v);
                 localStorage.setItem(SIDEBAR_KEY, String(v));
+                window.dispatchEvent(new CustomEvent("devbrain:sidebar:collapsed", { detail: { collapsed: v } }));
               }}
               label="Collapsed by default"
               description="Start with sidebar collapsed on page load."
@@ -401,6 +527,10 @@ function SectionPanel({ active, user }: { active: string; user: CurrentUser | nu
     );
   }
 
+  if (active === "focus") {
+    return <FocusSettingsPanel />;
+  }
+
   if (active === "about") {
     const stack = [
       { name: "Next.js",    version: "15.x (App Router)" },
@@ -473,6 +603,7 @@ function SectionPanel({ active, user }: { active: string; user: CurrentUser | nu
 const SECTIONS = [
   { id: "profile",       label: "Profile",       icon: User },
   { id: "appearance",    label: "Appearance",    icon: Palette },
+  { id: "focus",         label: "Focus",         icon: Timer },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "integrations",  label: "Integrations",  icon: Plug },
   { id: "security",      label: "Security",      icon: Shield },
