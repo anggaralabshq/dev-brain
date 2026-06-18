@@ -54,6 +54,11 @@ const MIGRATIONS: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS "learning_items_user_idx" ON "learning_items" ("user_id")`,
   `CREATE INDEX IF NOT EXISTS "learning_items_status_idx" ON "learning_items" ("status")`,
+
+  // 0010 (file): whiteboard public sharing
+  `ALTER TABLE "whiteboards" ADD COLUMN IF NOT EXISTS "is_public" boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE "whiteboards" ADD COLUMN IF NOT EXISTS "share_token" text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "whiteboards_share_token_uq" ON "whiteboards" ("share_token") WHERE "share_token" IS NOT NULL`,
 ];
 
 export async function runMigrations(): Promise<void> {
