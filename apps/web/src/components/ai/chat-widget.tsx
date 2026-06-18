@@ -63,6 +63,18 @@ export function AIChatWidget() {
   }, [open]);
 
   useEffect(() => {
+    const handler = (e: Event) => {
+      const msg = (e as CustomEvent<{ message: string }>).detail?.message;
+      if (!msg) return;
+      setInput(msg);
+      setOpen(true);
+      setTimeout(() => inputRef.current?.focus(), 80);
+    };
+    window.addEventListener("devbrain:ask-ai", handler);
+    return () => window.removeEventListener("devbrain:ask-ai", handler);
+  }, []);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 

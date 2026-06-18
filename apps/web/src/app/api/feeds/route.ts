@@ -13,13 +13,26 @@ export type FeedItem = {
   stars?: number;
 };
 
-// ── GitHub: AI repos sorted by stars (last 30 days) ──────────────
+// ── GitHub: rotate topic queries every 5 min, sort by recently updated ────────
+const GH_TOPICS = [
+  "topic:llm",
+  "topic:ai-agent",
+  "topic:machine-learning",
+  "topic:generative-ai",
+  "topic:large-language-model",
+  "topic:rag",
+  "topic:fine-tuning",
+  "topic:transformer",
+];
+const SLOT_MS = 5 * 60 * 1000;
+
 async function fetchGitHub(): Promise<FeedItem[]> {
-  const since = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
-  // Simple query — no OR between topics (GitHub search OR is unreliable)
-  const q = encodeURIComponent(`topic:llm created:>${since}`);
+  const slot  = Math.floor(Date.now() / SLOT_MS);
+  const topic = GH_TOPICS[slot % GH_TOPICS.length];
+  const since = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+  const q = encodeURIComponent(`${topic} pushed:>${since}`);
   const res = await fetch(
-    `https://api.github.com/search/repositories?q=${q}&sort=stars&order=desc&per_page=15`,
+    `https://api.github.com/search/repositories?q=${q}&sort=stars&order=desc&per_page=20`,
     {
       headers: {
         Accept: "application/vnd.github.v3+json",
@@ -140,7 +153,12 @@ export async function GET(req: NextRequest) {
     else if (source === "hn") items = await fetchHN();
     else if (source === "papers") items = await fetchPapers();
 
+    if (source === "github") {
+    const slot  = Math.floor(Date.now() / SLOT_MS);
+    console.log(`[feeds/github] slot ${slot % GH_TOPICS.length} → ${GH_TOPICS[slot % GH_TOPICS.length]}, ${items.length} items`);
+  } else {
     console.log(`[feeds/${source}] returning ${items.length} items`);
+  }
     return NextResponse.json({ items });
   } catch (err) {
     console.error(`[feeds/${source}] error:`, err);

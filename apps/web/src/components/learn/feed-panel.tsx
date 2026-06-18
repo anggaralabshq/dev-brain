@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Github, ExternalLink, Plus, Loader2,
-  FlameKindling, FileText, Sparkles, Check,
+  FlameKindling, FileText, Sparkles, Check, RotateCcw, MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addToBacklogAction, analyzeStackAction } from "@/lib/actions/learning";
@@ -21,29 +21,7 @@ const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
   { id: "papers",  label: "Papers",  icon: FileText },
 ];
 
-function FeedCard({ item, onAdd }: { item: FeedItem; onAdd: () => void }) {
-  const [added, setAdded] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
-
-  const handleAdd = () => {
-    startTransition(async () => {
-      const res = await addToBacklogAction({
-        title: item.title,
-        description: item.description,
-        sourceUrl: item.url,
-        sourceName: item.source,
-        tags: item.tags,
-        stars: item.stars,
-      });
-      if (res.ok) {
-        setAdded(true);
-        onAdd();
-        router.refresh();
-      }
-    });
-  };
-
+function FeedCard({ item }: { item: FeedItem }) {
   return (
     <Card className="group transition-colors hover:border-primary/30">
       <CardContent className="p-3 space-y-2">
@@ -54,29 +32,20 @@ function FeedCard({ item, onAdd }: { item: FeedItem; onAdd: () => void }) {
               <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <a href={item.url} target="_blank" rel="noopener noreferrer"
-              className="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-accent opacity-0 group-hover:opacity-100 transition-opacity">
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-accent">
               <ExternalLink className="h-3 w-3" />
             </a>
             <button
-              onClick={handleAdd}
-              disabled={isPending || added}
-              className={cn(
-                "rounded p-0.5 transition-all",
-                added
-                  ? "text-emerald-400"
-                  : "text-muted-foreground hover:text-primary hover:bg-accent opacity-0 group-hover:opacity-100"
-              )}
-              title={added ? "Added to backlog" : "Add to backlog"}
+              onClick={() => {
+                const msg = `Jelaskan tentang artikel/repo ini dan apa yang menarik untuk dipelajari:\n\n**${item.title}**\n${item.description ? `${item.description}\n` : ""}${item.url}${item.stars ? `\n⭐ ${item.stars >= 1000 ? `${(item.stars/1000).toFixed(1)}k` : item.stars} stars` : ""}`;
+                window.dispatchEvent(new CustomEvent("devbrain:ask-ai", { detail: { message: msg } }));
+              }}
+              className="rounded p-0.5 text-muted-foreground hover:text-pink-400 hover:bg-accent"
+              title="Ask AI"
             >
-              {isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : added ? (
-                <Check className="h-3.5 w-3.5" />
-              ) : (
-                <Plus className="h-3.5 w-3.5" />
-              )}
+              <MessageCircle className="h-3 w-3" />
             </button>
           </div>
         </div>
@@ -188,27 +157,37 @@ function AISuggestPanel() {
   );
 }
 
+const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 min
+
 export function FeedPanel() {
   const [activeTab, setActiveTab] = useState<Tab | "ai">("github");
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadFeed = useCallback((tab: Tab) => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/feeds?source=${tab}`)
+      .then(r => r.json())
+      .then(d => { setItems(d.items ?? []); setLastUpdated(new Date()); })
+      .catch(() => setError("Failed to load feed"))
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     if (activeTab === "ai") return;
-    setLoading(true);
-    setError(null);
-    fetch(`/api/feeds?source=${activeTab}`)
-      .then(r => r.json())
-      .then(d => setItems(d.items ?? []))
-      .catch(() => setError("Failed to load feed"))
-      .finally(() => setLoading(false));
-  }, [activeTab]);
+    loadFeed(activeTab);
+    timerRef.current = setInterval(() => loadFeed(activeTab), REFRESH_INTERVAL);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [activeTab, loadFeed]);
 
   return (
     <div className="flex flex-col gap-3 h-full">
       {/* Tabs */}
-      <div className="flex gap-1">
+      <div className="flex gap-1 items-center">
         {TABS.map(tab => (
           <button
             key={tab.id}
@@ -227,15 +206,25 @@ export function FeedPanel() {
         <button
           onClick={() => setActiveTab("ai")}
           className={cn(
-            "ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
             activeTab === "ai"
               ? "bg-pink-500/15 text-pink-400"
               : "text-muted-foreground hover:bg-accent hover:text-foreground"
           )}
         >
           <Sparkles className="h-3 w-3" />
-          AI Analyze
+          AI
         </button>
+        {activeTab !== "ai" && (
+          <button
+            onClick={() => loadFeed(activeTab as Tab)}
+            disabled={loading}
+            className="ml-auto rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-40"
+            title={lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : "Refresh"}
+          >
+            <RotateCcw className={cn("h-3 w-3", loading && "animate-spin")} />
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -252,7 +241,7 @@ export function FeedPanel() {
           <p className="text-center text-[11px] text-muted-foreground py-8">No items found</p>
         ) : (
           items.map(item => (
-            <FeedCard key={item.id} item={item} onAdd={() => {}} />
+            <FeedCard key={item.id} item={item} />
           ))
         )}
       </div>
