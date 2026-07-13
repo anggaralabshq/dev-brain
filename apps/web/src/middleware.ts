@@ -42,6 +42,9 @@ export default auth((req) => {
     }
   }
 
+  // Root domain "/" is the public superapp hub
+  if (pathname === "/" && !subdomain) return NextResponse.next();
+
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
