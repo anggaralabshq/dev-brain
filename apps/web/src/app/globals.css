@@ -8,74 +8,102 @@
 
 /* Light theme (default) */
 :root {
-  --background: #ffffff;
+  --background: #f4f7fb;
   --foreground: #09090b;
 
-  --card: #ffffff;
+  --card: #eef3fb;
   --card-foreground: #09090b;
 
-  --popover: #ffffff;
+  --popover: #e6edf8;
   --popover-foreground: #09090b;
 
-  --primary: #7c3aed;
-  --primary-foreground: #ffffff;
+  --primary: #2dd4bf;
+  --primary-foreground: #09090b;
 
-  --secondary: #f4f4f5;
+  --secondary: #eef3fb;
   --secondary-foreground: #18181b;
 
-  --muted: #f4f4f5;
+  --muted: #e6edf8;
   --muted-foreground: #71717a;
 
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
+  --accent: #2dd4bf;
+  --accent-foreground: #09090b;
 
-  --destructive: #dc2626;
+  --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
-  --success: #16a34a;
-  --warning: #d97706;
-  --info: #2563eb;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --info: #3b82f6;
 
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #7c3aed;
+  --border: #d1dae8;
+  --input: #d1dae8;
+  --ring: #2dd4bf;
 
   --radius: 0.625rem;
+
+  /* Extended tokens */
+  --bg: var(--background);
+  --bg2: var(--secondary);
+  --bg3: var(--muted);
+  --surface: var(--card);
+  --surface2: var(--popover);
+  --text2: var(--muted-foreground);
+  --border-hi: rgba(0, 0, 0, 0.1);
+  --danger: #ef4444;
+  --danger-dim: rgba(239, 68, 68, 0.12);
+  --blue: #3b82f6;
+  --warn: #f59e0b;
+  --green: #22c55e;
 }
 
 /* Dark theme */
 .dark {
-  --background: #0a0a0f;
+  --background: #0f0f0f;
   --foreground: #fafafa;
 
-  --card: #13131a;
+  --card: rgba(20, 20, 20, 0.98);
   --card-foreground: #fafafa;
 
-  --popover: #1a1a24;
+  --popover: rgba(26, 26, 26, 0.99);
   --popover-foreground: #fafafa;
 
-  --primary: #8b5cf6;
-  --primary-foreground: #fafafa;
+  --primary: #2dd4bf;
+  --primary-foreground: #0f0f0f;
 
-  --secondary: #1e1e2a;
+  --secondary: #141414;
   --secondary-foreground: #fafafa;
 
-  --muted: #1a1a24;
+  --muted: #1a1a1a;
   --muted-foreground: #a1a1aa;
 
-  --accent: #2a2a3a;
-  --accent-foreground: #fafafa;
+  --accent: #2dd4bf;
+  --accent-foreground: #0f0f0f;
 
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
 
-  --success: #10b981;
+  --success: #22c55e;
   --warning: #f59e0b;
   --info: #3b82f6;
 
-  --border: #27272f;
-  --input: #27272f;
-  --ring: #8b5cf6;
+  --border: #222222;
+  --input: #1a1a1a;
+  --ring: #2dd4bf;
+
+  /* Extended tokens */
+  --bg: var(--background);
+  --bg2: var(--secondary);
+  --bg3: var(--muted);
+  --surface: var(--card);
+  --surface2: var(--popover);
+  --text2: var(--muted-foreground);
+  --border-hi: rgba(255, 255, 255, 0.12);
+  --danger: #ef4444;
+  --danger-dim: rgba(239, 68, 68, 0.15);
+  --blue: #3b82f6;
+  --warn: #f59e0b;
+  --green: #22c55e;
 }
 
 @theme inline {
@@ -101,6 +129,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-danger: var(--danger);
+  --color-blue: var(--blue);
+  --color-warn: var(--warn);
+  --color-green: var(--green);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -133,7 +165,7 @@
     background: var(--background);
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--accent);
+    background: var(--border);
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
@@ -153,6 +185,39 @@
   --color-panel: var(--card);
   --color-low: var(--background);
   --color-bg: var(--background);
+}
+
+/* Button utility classes */
+@layer components {
+  .btn-primary {
+    background: #fff;
+    color: #111;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+  }
+
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text2);
+    border: 1px solid var(--border-hi);
+  }
+
+  .btn-danger {
+    background: var(--danger-dim);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+  }
+
+  .btn-primary-sm {
+    background: linear-gradient(135deg, #2dd4bf, #3b82f6);
+    color: var(--accent);
+    border: 1px solid rgba(45, 212, 191, 0.45);
+  }
+
+  .btn-ghost-sm {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border-hi);
+  }
 }
 
 @media print {
