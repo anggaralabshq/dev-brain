@@ -17,8 +17,8 @@
   --popover: #e6edf8;
   --popover-foreground: #09090b;
 
-  --primary: #2dd4bf;
-  --primary-foreground: #09090b;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
 
   --secondary: #eef3fb;
   --secondary-foreground: #18181b;
@@ -26,7 +26,7 @@
   --muted: #e6edf8;
   --muted-foreground: #71717a;
 
-  --accent: #2dd4bf;
+  --accent: #e4e4e7;
   --accent-foreground: #09090b;
 
   --destructive: #ef4444;
@@ -38,7 +38,7 @@
 
   --border: #d1dae8;
   --input: #d1dae8;
-  --ring: #2dd4bf;
+  --ring: #18181b;
 
   --radius: 0.625rem;
 
@@ -68,7 +68,7 @@
   --popover: rgba(26, 26, 26, 0.99);
   --popover-foreground: #fafafa;
 
-  --primary: #2dd4bf;
+  --primary: #fafafa;
   --primary-foreground: #0f0f0f;
 
   --secondary: #141414;
@@ -77,8 +77,8 @@
   --muted: #1a1a1a;
   --muted-foreground: #a1a1aa;
 
-  --accent: #2dd4bf;
-  --accent-foreground: #0f0f0f;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
 
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
@@ -89,7 +89,7 @@
 
   --border: #222222;
   --input: #1a1a1a;
-  --ring: #2dd4bf;
+  --ring: #a1a1aa;
 
   /* Extended tokens */
   --bg: var(--background);
@@ -208,9 +208,9 @@
   }
 
   .btn-primary-sm {
-    background: linear-gradient(135deg, #2dd4bf, #3b82f6);
-    color: var(--accent);
-    border: 1px solid rgba(45, 212, 191, 0.45);
+    background: linear-gradient(135deg, #fafafa, #d4d4d8);
+    color: #111;
+    border: 1px solid rgba(255, 255, 255, 0.45);
   }
 
   .btn-ghost-sm {

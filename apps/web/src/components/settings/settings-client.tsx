@@ -25,7 +25,7 @@ const INPUT_CLS =
 const LABEL_CLS = "mb-1 block text-xs font-medium text-muted-foreground";
 
 type Theme = "dark" | "light" | "system";
-const THEME_KEY = "devbrain:theme";
+const THEME_KEY = "devbrain:theme:v2";
 const SIDEBAR_KEY = "devbrain:sidebar:collapsed";
 
 function Toggle({

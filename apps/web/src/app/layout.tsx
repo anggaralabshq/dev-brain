@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 // Reads localStorage before first paint — no flash on theme load. Static string, no XSS risk.
-const themeScript = `(function(){try{var t=localStorage.getItem('devbrain:theme')||'dark';if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){document.documentElement.classList.add('dark');}}})()`;
+const themeScript = `(function(){try{var t=localStorage.getItem('devbrain:theme:v2')||'dark';if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){document.documentElement.classList.add('dark');}})()`;
 
 export default function RootLayout({
   children,

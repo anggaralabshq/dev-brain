@@ -43,15 +43,19 @@ services:
     container_name: devbrain-web
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "3001:3001"
     env_file:
       - ./apps/web/.env
     environment:
       # Override env_file values that need Docker-internal addressing
       DATABASE_URL: "postgresql://devbrain:devbrain_dev_only@postgres:5432/devbrain"
-      AUTH_URL: "http://localhost:3001"
+      AUTH_URL: "http://brain.localhost:3001"
       AUTH_TRUST_HOST: "true"
       NEXT_PUBLIC_APP_URL: "http://localhost:3001"
+      PORT: "3001"
+    extra_hosts:
+      - "brain.localhost:127.0.0.1"
+      - "localhost:127.0.0.1"
     depends_on:
       postgres:
         condition: service_healthy
