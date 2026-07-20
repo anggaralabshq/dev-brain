@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { KeyRound, Lock, Settings } from "lucide-react";
+import { KeyRound, Lock, LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { signOutAction } from "@/lib/auth/actions";
 import { useVaultKey, type DecryptedVaultItem } from "@/contexts/vault-key-context";
 import { SetupScreen } from "@/components/vault/setup-screen";
 import { UnlockScreen } from "@/components/vault/unlock-screen";
@@ -65,6 +66,11 @@ function VaultShell() {
             <Lock className="h-3.5 w-3.5" />
             Lock
           </Button>
+          <form action={signOutAction}>
+            <Button type="submit" variant="ghost" size="icon" title="Log out">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </form>
         </div>
       </header>
 

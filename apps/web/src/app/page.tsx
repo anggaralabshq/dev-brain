@@ -51,62 +51,63 @@ export default function HubPage() {
       </header>
 
       {/* Hero */}
-      <main className="flex-1 flex flex-col items-center px-6 sm:px-10 pt-24 pb-16">
-        <div className="text-foreground mb-10">
-          <AbstractMark size={52} />
+      <main className="flex-1 flex flex-col items-center px-6 sm:px-10 pt-14 pb-16">
+        <div className="text-foreground mb-6">
+          <AbstractMark size={40} />
         </div>
 
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-center mb-4 max-w-lg leading-[1.1]">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-3 max-w-lg leading-[1.1]">
           A personal suite of focused tools
         </h1>
-        <p className="text-muted-foreground text-center max-w-sm text-base leading-relaxed mb-20">
+        <p className="text-muted-foreground text-center max-w-sm text-base leading-relaxed mb-12">
           Each app does one thing well. Built for how I actually work.
         </p>
 
         {/* Apps */}
-        <div className="w-full max-w-xl">
+        <div className="w-full max-w-4xl">
           <p className="text-[11px] font-medium tracking-widest uppercase text-muted-foreground mb-5">
             Apps
           </p>
 
-          {/* Featured live app card */}
-          {APPS.map((app) => {
-            const Icon = app.icon;
-            return (
-              <Link
-                key={app.name}
-                href={app.href}
-                className="group block rounded-xl border border-border/60 bg-card p-6 mb-3 hover:border-border transition-colors"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {APPS.map((app) => {
+              const Icon = app.icon;
+              return (
+                <Link
+                  key={app.name}
+                  href={app.href}
+                  className="group flex flex-col rounded-xl border border-border/60 bg-card p-5 hover:border-border transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-3">
                     <div className="w-9 h-9 rounded-lg border border-border/60 bg-muted/60 flex items-center justify-center">
                       <Icon className="w-4 h-4 text-foreground/70" />
                     </div>
-                    <span className="font-semibold text-sm">{app.name}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
                   </div>
-                  <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium mt-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-foreground/40" />
-                    Live
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-5">
-                  {app.description}
-                </p>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                  Open app <ArrowUpRight className="w-3 h-3" />
-                </span>
-              </Link>
-            );
-          })}
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="font-semibold text-sm">{app.name}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                    {app.description}
+                  </p>
+                </Link>
+              );
+            })}
 
-          {/* Coming soon — dotted rows */}
-          <div className="mt-6 flex flex-col gap-3">
             {COMING_SOON.map((app) => (
-              <div key={app.name} className="flex items-center gap-0 text-sm text-muted-foreground/50">
-                <span className="shrink-0">{app.name}</span>
-                <span className="flex-1 mx-3 border-b border-dashed border-border/40" />
-                <span className="shrink-0 text-[11px] tracking-wide">Soon</span>
+              <div
+                key={app.name}
+                className="flex flex-col rounded-xl border border-dashed border-border/40 p-5 text-muted-foreground/50"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-9 h-9 rounded-lg border border-dashed border-border/40 flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                  </div>
+                  <span className="text-[11px] tracking-wide">Soon</span>
+                </div>
+                <span className="font-semibold text-sm mb-1.5">{app.name}</span>
+                <p className="text-xs leading-relaxed line-clamp-2">{app.description}</p>
               </div>
             ))}
           </div>
