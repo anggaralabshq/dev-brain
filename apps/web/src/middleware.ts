@@ -42,6 +42,24 @@ export default auth((req) => {
     }
   }
 
+  // vault.anggaralabs.lol → rewrite to /vaultkey/*
+  if (subdomain === "vault") {
+    // Dev-only bypass, gated by an explicit env var (see lib/auth/current-user.ts
+    // for the matching bypass that lets vault server actions resolve a real user).
+    const devSkipAuth = process.env.DEV_SKIP_AUTH === "true";
+    const skip = SKIP_REWRITE_PREFIXES.some((p) => pathname.startsWith(p));
+    if (!skip && !pathname.startsWith("/vaultkey")) {
+      if (!isLoggedIn && !devSkipAuth) {
+        const loginUrl = new URL("/login", req.nextUrl);
+        loginUrl.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+      const url = req.nextUrl.clone();
+      url.pathname = `/vaultkey${pathname}`;
+      return NextResponse.rewrite(url);
+    }
+  }
+
   // Root domain "/" is the public superapp hub
   if (pathname === "/" && !subdomain) return NextResponse.next();
 

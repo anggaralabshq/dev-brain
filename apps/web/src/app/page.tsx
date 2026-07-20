@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Brain, ArrowUpRight } from "lucide-react";
+import { Brain, KeyRound, ArrowUpRight } from "lucide-react";
 
 const APPS = [
   {
@@ -7,6 +7,12 @@ const APPS = [
     description: "Second brain for developers. Notes, projects, architecture, and deep focus — all in one place.",
     href: process.env.NEXT_PUBLIC_DEVBRAIN_URL ?? "https://brain.anggaralabs.lol",
     icon: Brain,
+  },
+  {
+    name: "VaultKey",
+    description: "Self-hosted, zero-knowledge password manager. Your master password never leaves your browser.",
+    href: process.env.NEXT_PUBLIC_VAULTKEY_URL ?? "https://vault.anggaralabs.lol",
+    icon: KeyRound,
   },
 ];
 

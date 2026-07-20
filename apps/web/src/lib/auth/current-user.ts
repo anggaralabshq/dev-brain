@@ -16,6 +16,18 @@ export type CurrentUser = {
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
+  // Dev-only bypass, gated by an explicit env var never set outside local .env
+  // (gitignored, absent from .env.example). Returns the first real user row so
+  // vault data still scopes to a real uuid. NODE_ENV is "production" even in
+  // this local docker-compose stack (standalone build), so it can't gate this.
+  if (process.env.DEV_SKIP_AUTH === "true") {
+    const [devUser] = await db
+      .select({ id: users.id, email: users.email, name: users.name, image: users.image })
+      .from(users)
+      .limit(1);
+    if (devUser) return devUser;
+  }
+
   const session = await auth();
   if (!session?.user?.id) return null;
 

@@ -59,6 +59,42 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE "whiteboards" ADD COLUMN IF NOT EXISTS "is_public" boolean NOT NULL DEFAULT false`,
   `ALTER TABLE "whiteboards" ADD COLUMN IF NOT EXISTS "share_token" text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "whiteboards_share_token_uq" ON "whiteboards" ("share_token") WHERE "share_token" IS NOT NULL`,
+
+  // 0011: vaultkey tables
+  `CREATE TABLE IF NOT EXISTS "vault_user_keys" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "kdf_salt" text NOT NULL,
+    "kdf_iterations" integer NOT NULL DEFAULT 600000,
+    "kdf_hash" text NOT NULL DEFAULT 'SHA-256',
+    "auth_hash" text NOT NULL,
+    "wrapped_vault_key" text NOT NULL,
+    "wrapped_vault_key_iv" text NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    "updated_at" timestamptz DEFAULT now() NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "vault_user_keys_user_id_uq" ON "vault_user_keys" ("user_id")`,
+  `CREATE TABLE IF NOT EXISTS "vault_folders" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "name_ciphertext" text NOT NULL,
+    "name_iv" text NOT NULL,
+    "sort_order" integer NOT NULL DEFAULT 0,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    "updated_at" timestamptz DEFAULT now() NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS "vault_folders_user_idx" ON "vault_folders" ("user_id")`,
+  `CREATE TABLE IF NOT EXISTS "vault_items" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "folder_id" uuid REFERENCES "vault_folders"("id") ON DELETE SET NULL,
+    "ciphertext" text NOT NULL,
+    "iv" text NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    "updated_at" timestamptz DEFAULT now() NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS "vault_items_user_idx" ON "vault_items" ("user_id")`,
+  `CREATE INDEX IF NOT EXISTS "vault_items_folder_idx" ON "vault_items" ("folder_id")`,
 ];
 
 export async function runMigrations(): Promise<void> {

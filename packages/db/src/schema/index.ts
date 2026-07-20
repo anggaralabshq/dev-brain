@@ -13,3 +13,4 @@ export * from "./project-files";
 export * from "./pomodoro";
 export * from "./ai-chats";
 export * from "./learning-items";
+export * from "./vault";

@@ -28,6 +28,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientId: process.env.GITHUB_ID!,
       clientSecret: process.env.GITHUB_SECRET!,
       allowDangerousEmailAccountLinking: true,
+      // GitHub OAuth App only allows one registered callback URL (brain.*).
+      // This proxies vault.*'s callback through it, then Auth.js bounces
+      // back to the real origin via signed state.
+      redirectProxyUrl: process.env.AUTH_REDIRECT_PROXY_URL,
     }),
   ],
   callbacks: {

@@ -49,12 +49,16 @@ services:
     environment:
       # Override env_file values that need Docker-internal addressing
       DATABASE_URL: "postgresql://devbrain:devbrain_dev_only@postgres:5432/devbrain"
-      AUTH_URL: "http://brain.localhost:3001"
       AUTH_TRUST_HOST: "true"
+      # Dev-only: skip GitHub OAuth for vault.localhost, use the first existing users row.
+      # Runtime-only (not baked into the build image, unlike apps/web/.env) — see
+      # lib/auth/current-user.ts and middleware.ts for the matching bypass code.
+      DEV_SKIP_AUTH: "true"
       NEXT_PUBLIC_APP_URL: "http://localhost:3001"
       PORT: "3001"
     extra_hosts:
       - "brain.localhost:127.0.0.1"
+      - "vault.localhost:127.0.0.1"
       - "localhost:127.0.0.1"
     depends_on:
       postgres:

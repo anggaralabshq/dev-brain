@@ -50,6 +50,13 @@
       "when": 1781068293543,
       "tag": "0006_certain_absorbing_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784274822344,
+      "tag": "0007_volatile_paladin",
+      "breakpoints": true
     }
   ]
 }
