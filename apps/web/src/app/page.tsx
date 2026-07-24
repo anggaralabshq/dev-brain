@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Brain, KeyRound, ArrowUpRight } from "lucide-react";
+import { Brain, KeyRound, TreePine, ArrowUpRight } from "lucide-react";
 
 const APPS = [
   {
@@ -13,6 +13,12 @@ const APPS = [
     description: "Self-hosted, zero-knowledge password manager. Your master password never leaves your browser.",
     href: process.env.NEXT_PUBLIC_VAULTKEY_URL ?? "https://vault.anggaralabs.lol",
     icon: KeyRound,
+  },
+  {
+    name: "Hutan Monitor",
+    description: "Alert gratis tiap ada titik deforestasi atau kebakaran hutan baru di wilayah pilihanmu.",
+    href: process.env.NEXT_PUBLIC_FOREST_URL ?? "https://hutan.anggaralabs.lol",
+    icon: TreePine,
   },
 ];
 

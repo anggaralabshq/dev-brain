@@ -6,6 +6,7 @@ import {
   Check, Monitor, Sun, Moon, Github, Slack,
   ChevronRight, Lock, KeyRound, LogOut,
   Globe, Zap, Mail, MessageSquare, Timer,
+  Bot, Loader2, AlertCircle, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { getPomodoroSettings, updatePomodoroSettings } from "@/lib/actions/pomodoro";
+import {
+  getAiSettingsAction,
+  updateAnthropicApiKeyAction,
+  clearAnthropicApiKeyAction,
+  testAnthropicConnectionAction,
+} from "@/lib/actions/ai-settings";
 
 type Section = {
   id: string;
@@ -185,6 +192,150 @@ function FocusSettingsPanel() {
         </Button>
         {saved && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check className="h-3 w-3" /> Saved</span>}
       </div>
+    </div>
+  );
+}
+
+type TestResult = { state: "idle" } | { state: "testing" } | { state: "ok"; model: string } | { state: "error"; error: string };
+
+function AiSettingsPanel() {
+  const [hasKey, setHasKey] = useState(false);
+  const [maskedKey, setMaskedKey] = useState<string | null>(null);
+  const [usingEnvFallback, setUsingEnvFallback] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [test, setTest] = useState<TestResult>({ state: "idle" });
+  const [isPending, startTransition] = useTransition();
+
+  const load = () => {
+    getAiSettingsAction().then((res) => {
+      if (res.ok) {
+        setHasKey(res.hasKey);
+        setMaskedKey(res.maskedKey);
+        setUsingEnvFallback(res.usingEnvFallback);
+      }
+      setLoaded(true);
+    });
+  };
+
+  useEffect(load, []);
+
+  const save = () => {
+    const key = keyInput.trim();
+    if (!key) return;
+    setSaveError(null);
+    startTransition(async () => {
+      const res = await updateAnthropicApiKeyAction(key);
+      if (!res.ok) {
+        setSaveError(res.error);
+        return;
+      }
+      setKeyInput("");
+      setTest({ state: "idle" });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      load();
+    });
+  };
+
+  const clear = () => {
+    startTransition(async () => {
+      await clearAnthropicApiKeyAction();
+      setTest({ state: "idle" });
+      load();
+    });
+  };
+
+  const testConnection = () => {
+    setTest({ state: "testing" });
+    startTransition(async () => {
+      const key = keyInput.trim() || undefined;
+      const res = await testAnthropicConnectionAction(key);
+      setTest(res.ok ? { state: "ok", model: res.model } : { state: "error", error: res.error });
+    });
+  };
+
+  if (!loaded) return <div className="text-sm text-muted-foreground">Loading…</div>;
+
+  return (
+    <div className="space-y-6 max-w-xl">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Anthropic API Key</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Powers the AI chat and diagram generation. Get a key at{" "}
+            <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" className="text-primary underline hover:no-underline">
+              console.anthropic.com
+            </a>.
+          </p>
+
+          {hasKey ? (
+            <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="font-mono text-xs">{maskedKey}</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={clear} disabled={isPending} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <X className="h-3.5 w-3.5" />
+                Remove
+              </Button>
+            </div>
+          ) : usingEnvFallback ? (
+            <p className="text-xs text-muted-foreground">Using <code className="font-mono">ANTHROPIC_API_KEY</code> from server env. Set one below to override it per-user.</p>
+          ) : (
+            <p className="text-xs text-amber-500">No key configured — AI features will not work.</p>
+          )}
+
+          <div>
+            <label className={LABEL_CLS}>{hasKey ? "Replace key" : "API key"}</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => { setKeyInput(e.target.value); setTest({ state: "idle" }); }}
+                placeholder="sk-ant-..."
+                className={cn(INPUT_CLS, "flex-1 font-mono")}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+            {saveError && <p className="mt-1 text-xs text-destructive">{saveError}</p>}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button onClick={save} disabled={isPending || !keyInput.trim()} size="sm">
+              {isPending ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={testConnection}
+              disabled={isPending || test.state === "testing" || (!keyInput.trim() && !hasKey && !usingEnvFallback)}
+            >
+              {test.state === "testing" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
+              Test Connection
+            </Button>
+            {saved && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check className="h-3 w-3" /> Saved</span>}
+          </div>
+
+          {test.state === "ok" && (
+            <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              Connected — reachable, model <span className="font-mono">{test.model}</span> available.
+            </div>
+          )}
+          {test.state === "error" && (
+            <div className="flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {test.error}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -531,6 +682,10 @@ function SectionPanel({ active, user }: { active: string; user: CurrentUser | nu
     return <FocusSettingsPanel />;
   }
 
+  if (active === "ai") {
+    return <AiSettingsPanel />;
+  }
+
   if (active === "about") {
     const stack = [
       { name: "Next.js",    version: "15.x (App Router)" },
@@ -604,6 +759,7 @@ const SECTIONS = [
   { id: "profile",       label: "Profile",       icon: User },
   { id: "appearance",    label: "Appearance",    icon: Palette },
   { id: "focus",         label: "Focus",         icon: Timer },
+  { id: "ai",            label: "AI",            icon: Bot },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "integrations",  label: "Integrations",  icon: Plug },
   { id: "security",      label: "Security",      icon: Shield },

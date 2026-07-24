@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth/current-user";
 import { buildContext, matchEntities } from "@/lib/ai/context";
+import { resolveAnthropicApiKey } from "@/lib/ai/anthropic-key";
 import type { AIAction } from "@/lib/ai/types";
 import {
   createChat,
@@ -25,8 +26,8 @@ function parseActions(text: string): { stripped: string; actions: AIAction[] } {
   return { stripped, actions };
 }
 
-const MINIMAX_API_URL = process.env.MINIMAX_API_URL ?? "https://api.minimax.io/v1/text/chatcompletion_v2";
-const MINIMAX_MODEL = process.env.MINIMAX_MODEL ?? "MiniMax-M2.7-Highspeed";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
 
 export async function POST(req: NextRequest) {
   try {
@@ -88,30 +89,30 @@ async function handleChat(req: NextRequest) {
     projectSlug: projectSlug ?? null,
   });
 
-  const apiKey = process.env.MINIMAX_API_KEY;
+  const apiKey = await resolveAnthropicApiKey(user.id);
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: "MINIMAX_API_KEY not configured" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "No Anthropic API key configured — add one in Settings → AI" }), { status: 500 });
   }
 
-  const minimaxRes = await fetch(MINIMAX_API_URL, {
+  const anthropicRes = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: MINIMAX_MODEL,
+      model: ANTHROPIC_MODEL,
+      max_tokens: 4096,
       stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...historyMessages,
-      ],
+      system: systemPrompt,
+      messages: historyMessages,
     }),
   });
 
-  if (!minimaxRes.ok) {
-    const errText = await minimaxRes.text();
-    return new Response(JSON.stringify({ error: `MiniMax error: ${errText}` }), { status: 502 });
+  if (!anthropicRes.ok) {
+    const errText = await anthropicRes.text();
+    return new Response(JSON.stringify({ error: `Claude error: ${errText}` }), { status: 502 });
   }
 
   const encoder = new TextEncoder();
@@ -121,7 +122,7 @@ async function handleChat(req: NextRequest) {
     async start(controller) {
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chatId })}\n\n`));
 
-      const reader = minimaxRes.body!.getReader();
+      const reader = anthropicRes.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
 
@@ -137,18 +138,19 @@ async function handleChat(req: NextRequest) {
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
             const data = line.slice(6).trim();
-            if (data === "[DONE]") {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-              continue;
-            }
             try {
               const parsed = JSON.parse(data) as {
-                choices?: Array<{ delta?: { content?: string } }>;
+                type?: string;
+                delta?: { type?: string; text?: string };
               };
-              const delta = parsed.choices?.[0]?.delta?.content ?? "";
-              if (delta) {
-                fullContent += delta;
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta })}\n\n`));
+              if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+                const delta = parsed.delta.text ?? "";
+                if (delta) {
+                  fullContent += delta;
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta })}\n\n`));
+                }
+              } else if (parsed.type === "message_stop") {
+                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               }
             } catch {
               // skip malformed SSE lines

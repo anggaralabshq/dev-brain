@@ -11,7 +11,7 @@ import {
 import "tldraw/tldraw.css";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save, Check, Trash2, Download, Share2, Link } from "lucide-react";
+import { Loader2, Save, Check, Trash2, Download, Share2, Link, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { saveWhiteboardAction, deleteWhiteboardAction, toggleShareAction } from "@/lib/actions/whiteboards";
+import { applyDiagramToEditor } from "@/lib/ai/apply-diagram";
+import type { DiagramNode, DiagramEdge } from "@/lib/ai/types";
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error";
 
@@ -87,6 +89,10 @@ export function WhiteboardEditor({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isPublic, setIsPublic] = useState(initialIsPublic ?? false);
   const [shareToken, setShareToken] = useState(initialShareToken ?? null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const editorRef = useRef<Editor | null>(null);
   const lastSaveRef = useRef<string>("");
@@ -178,8 +184,44 @@ export function WhiteboardEditor({
     const editor = editorRef.current;
     if (!editor) return;
     const ids = [...editor.getCurrentPageShapeIds()];
-    if (ids.length === 0) return;
-    await exportAs(editor, ids, { format, name: title });
+    if (ids.length === 0) {
+      alert("Add some shapes to the canvas before exporting.");
+      return;
+    }
+    try {
+      await exportAs(editor, ids, { format, name: title });
+    } catch (e) {
+      console.error("[export]", e);
+      alert(`Export failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const handleGenerateDiagram = async () => {
+    const editor = editorRef.current;
+    const prompt = aiPrompt.trim();
+    if (!editor || !prompt || aiLoading) return;
+
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/diagram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json() as { error?: string; nodes?: DiagramNode[]; edges?: DiagramEdge[] };
+      if (!res.ok || !data.nodes) {
+        setAiError(data.error ?? "Failed to generate diagram");
+        return;
+      }
+      applyDiagramToEditor(editor, { nodes: data.nodes, edges: data.edges ?? [] });
+      setAiPrompt("");
+      setAiOpen(false);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Failed to generate diagram");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleToggleShare = () => {
@@ -222,6 +264,17 @@ export function WhiteboardEditor({
           placeholder="Diagram title"
         />
         <SaveStatusBadge status={status} />
+
+        {/* AI generate */}
+        <Button
+          size="sm"
+          variant={aiOpen ? "default" : "outline"}
+          onClick={() => setAiOpen((o) => !o)}
+          disabled={!isMounted}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          AI
+        </Button>
 
         {/* Export */}
         <DropdownMenu>
@@ -282,6 +335,30 @@ export function WhiteboardEditor({
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      {aiOpen && (
+        <div className="flex items-center gap-2 border-b border-border bg-muted/20 px-4 py-2">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <input
+            type="text"
+            autoFocus
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleGenerateDiagram();
+              if (e.key === "Escape") setAiOpen(false);
+            }}
+            placeholder="Buatin arsitektur microservices auth..."
+            disabled={aiLoading}
+            className="flex-1 bg-transparent text-sm focus:outline-none disabled:opacity-50"
+          />
+          {aiError && <span className="text-xs text-destructive shrink-0">{aiError}</span>}
+          <Button size="sm" onClick={handleGenerateDiagram} disabled={aiLoading || !aiPrompt.trim()}>
+            {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {aiLoading ? "Generating…" : "Generate"}
+          </Button>
+        </div>
+      )}
 
       <ConfirmDialog
         open={deleteOpen}

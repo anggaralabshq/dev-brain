@@ -50,6 +50,17 @@ export default auth((req) => {
     }
   }
 
+  // hutan.anggaralabs.lol → rewrite to /forest/* (public, no auth)
+  if (subdomain === "hutan") {
+    const skip = SKIP_REWRITE_PREFIXES.some((p) => pathname.startsWith(p));
+    if (!skip && !pathname.startsWith("/forest")) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/forest${pathname}`;
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
+  }
+
   // Root domain "/" is the public superapp hub
   if (pathname === "/" && !subdomain) return NextResponse.next();
 

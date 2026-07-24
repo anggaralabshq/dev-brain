@@ -14,3 +14,5 @@ export * from "./pomodoro";
 export * from "./ai-chats";
 export * from "./learning-items";
 export * from "./vault";
+export * from "./forest";
+export * from "./ai-settings";

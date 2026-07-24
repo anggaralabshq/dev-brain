@@ -95,6 +95,55 @@ const MIGRATIONS: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS "vault_items_user_idx" ON "vault_items" ("user_id")`,
   `CREATE INDEX IF NOT EXISTS "vault_items_folder_idx" ON "vault_items" ("folder_id")`,
+
+  // 0012: forest monitor tables
+  `DO $$ BEGIN
+    CREATE TYPE forest_region_level AS ENUM ('provinsi', 'kabupaten', 'kecamatan');
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$`,
+  `DO $$ BEGIN
+    CREATE TYPE forest_alert_source AS ENUM ('gfw', 'firms');
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$`,
+  `CREATE TABLE IF NOT EXISTS "forest_regions" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "name" text NOT NULL,
+    "level" forest_region_level NOT NULL,
+    "parent_id" uuid,
+    "lat" double precision NOT NULL,
+    "lng" double precision NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS "forest_alerts" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "region_id" uuid REFERENCES "forest_regions"("id") ON DELETE SET NULL,
+    "source" forest_alert_source NOT NULL,
+    "lat" double precision NOT NULL,
+    "lng" double precision NOT NULL,
+    "area_ha" double precision,
+    "detected_at" timestamptz NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    CONSTRAINT "forest_alerts_source_loc_time_uq" UNIQUE ("source", "lat", "lng", "detected_at")
+  )`,
+  `CREATE TABLE IF NOT EXISTS "forest_subscriptions" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "telegram_chat_id" text NOT NULL,
+    "region_id" uuid NOT NULL REFERENCES "forest_regions"("id") ON DELETE CASCADE,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    CONSTRAINT "forest_subscriptions_chat_region_uq" UNIQUE ("telegram_chat_id", "region_id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "forest_regions_level_idx" ON "forest_regions" ("level")`,
+  `CREATE INDEX IF NOT EXISTS "forest_regions_parent_idx" ON "forest_regions" ("parent_id")`,
+  `CREATE INDEX IF NOT EXISTS "forest_alerts_region_idx" ON "forest_alerts" ("region_id")`,
+  `CREATE INDEX IF NOT EXISTS "forest_alerts_detected_idx" ON "forest_alerts" ("detected_at")`,
+  `CREATE INDEX IF NOT EXISTS "forest_subscriptions_region_idx" ON "forest_subscriptions" ("region_id")`,
+
+  // 0013: ai_settings — per-user Anthropic API key
+  `CREATE TABLE IF NOT EXISTS "ai_settings" (
+    "user_id" uuid PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
+    "anthropic_api_key" text,
+    "updated_at" timestamptz DEFAULT now() NOT NULL
+  )`,
 ];
 
 export async function runMigrations(): Promise<void> {

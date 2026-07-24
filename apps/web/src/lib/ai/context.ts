@@ -28,8 +28,7 @@ export async function buildContext(opts: {
   const base = `You are DevBrain AI, an intelligent assistant embedded in DevBrain — a second brain app for developers.
 You help ${userName} with questions about their projects, notes, tasks, architecture decisions, and anything else related to their work.
 Today is ${today}. Answer in the same language the user writes in (Indonesian or English).
-Be concise, technical, and practical. Format code with backticks.
-If the user asks you to create a diagram, draw, or visualize architecture, reply that the diagram feature is coming soon and is not yet available.`;
+Be concise, technical, and practical. Format code with backticks.`;
 
   // Global view — load all projects + all notes
   if (!projectSlug) {
@@ -169,6 +168,12 @@ Keywords: "catat keputusan", "buat ADR", "document decision", "record decision".
 
 **create_meeting** → Schedule a meeting.
 <devbrain-action>{"type":"create_meeting","title":"Meeting title","projectSlug":"slug","startAt":"2024-01-15T09:00:00Z","endAt":"2024-01-15T10:00:00Z","location":"optional","notes":"optional"}</devbrain-action>
+
+**create_diagram** → Use when user asks to CREATE, DRAW, or VISUALIZE an architecture/flow/system diagram.
+Keywords: "buatin arsitektur", "gambar diagram", "draw architecture", "visualize the flow".
+nodes: short unique ids + label + optional shape (rectangle|ellipse|diamond|cylinder|hexagon|circle) + optional color (blue|violet|green|red|orange|yellow|pink|cyan|grey).
+edges: connect node ids by "from"/"to", optional label. Layout is computed automatically — do not include x/y.
+<devbrain-action>{"type":"create_diagram","title":"Diagram title","projectSlug":"slug","nodes":[{"id":"api","label":"API Gateway","shape":"rectangle","color":"blue"},{"id":"db","label":"Postgres","shape":"cylinder","color":"green"}],"edges":[{"from":"api","to":"db","label":"reads/writes"}]}</devbrain-action>
 
 Available project slugs: ${slugList}
 Only emit action tags when user explicitly asks. Never speculate. ONE action per intent.`;
