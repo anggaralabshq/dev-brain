@@ -27,7 +27,7 @@ function parseActions(text: string): { stripped: string; actions: AIAction[] } {
 }
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-fable-5";
 
 export async function POST(req: NextRequest) {
   try {

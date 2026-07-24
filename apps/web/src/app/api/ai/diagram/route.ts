@@ -4,7 +4,7 @@ import { resolveAnthropicApiKey } from "@/lib/ai/anthropic-key";
 import type { DiagramNode, DiagramEdge } from "@/lib/ai/types";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-fable-5";
 
 const SYSTEM_PROMPT = `You turn a short prompt into a system/architecture diagram spec.
 Emit the emit_diagram tool call with concise node labels (2-4 words) and only the edges needed to show the flow. Pick shapes/colors that make sense (e.g. cylinder+green for databases, rectangle+blue for services, diamond for decisions).`;
